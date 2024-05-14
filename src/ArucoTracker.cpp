@@ -12,7 +12,7 @@ public:
 
 private:
 	void image_callback(const sensor_msgs::msg::Image::SharedPtr msg);
-	cv::Mat processImage(const cv::Mat& img);
+	cv::Mat detect_and_box(const cv::Mat& img);
 
 	rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr _image_sub;
 	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr _image_pub;
