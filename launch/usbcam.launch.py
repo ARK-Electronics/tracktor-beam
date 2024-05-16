@@ -13,9 +13,9 @@ def generate_launch_description():
     )
 
     tracker_node = Node(
-        package='omnitrack',
-        executable='omnitrack',
-        name='omnitrack'
+        package='tracktor-beam',
+        executable='tracktor-beam',
+        name='tracktor-beam'
     )
 
     return launch.LaunchDescription([

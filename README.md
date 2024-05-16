@@ -9,7 +9,7 @@ sudo apt-get install -y \
 ```
 
 ```
-ros2 launch omnitrack usbcam.launch.py
+ros2 launch tracktor-beam usbcam.launch.py
 ```
 View the image
 ```

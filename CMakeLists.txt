@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(omnitrack)
+project(tracktor-beam)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
@@ -11,22 +11,22 @@ find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 
-add_executable(omnitrack src/ArucoTracker.cpp)
+add_executable(tracktor-beam src/ArucoTracker.cpp)
 
-ament_target_dependencies(omnitrack
+ament_target_dependencies(tracktor-beam
   rclcpp
   sensor_msgs
   cv_bridge
   OpenCV
 )
 
-target_include_directories(omnitrack PUBLIC
+target_include_directories(tracktor-beam PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
-target_compile_features(omnitrack PUBLIC c_std_99 cxx_std_17)
+target_compile_features(tracktor-beam PUBLIC c_std_99 cxx_std_17)
 
-install(TARGETS omnitrack
+install(TARGETS tracktor-beam
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
