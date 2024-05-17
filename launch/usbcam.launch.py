@@ -13,9 +13,9 @@ def generate_launch_description():
     )
 
     tracker_node = Node(
-        package='tracktor-beam',
-        executable='tracktor-beam',
-        name='tracktor-beam'
+        package='tracktorbeam',
+        executable='tracktorbeam',
+        name='tracktorbeam'
     )
 
     return launch.LaunchDescription([
