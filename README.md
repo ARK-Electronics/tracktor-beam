@@ -35,3 +35,15 @@ USB 2.0 Camera: USB Camera (usb-0000:00:14.0-3.2):
 	/dev/media1
 
 ```
+
+## Camera calibration
+- fisheye calibration
+- https://docs.ros.org/en/rolling/p/camera_calibration/tutorial_mono.html
+USB camera
+https://www.amazon.com/gp/product/B0829HZ3Q7/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
+```
+ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video2
+```
+```
+ros2 run camera_calibration cameracalibrator --size 7x9 --square 0.015 --ros-args -r image:=/image_raw
+```

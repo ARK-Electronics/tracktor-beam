@@ -8,18 +8,18 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(px4_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 
-# add_executable(tracktorbeam src/ArucoTracker.cpp)
-# add_executable(objecttracker src/MovingObjectTracker.cpp)
-# add_executable(objecttracker src/VehicleTracker.cpp)
+# add_executable(tracker src/VehicleTrackerYOLO.cpp)
+add_executable(tracker src/ArucoTracker.cpp)
 add_executable(videoplayback src/VideoPlayback.cpp)
-add_executable(objecttracker src/VehicleTrackerYOLO.cpp)
 
-ament_target_dependencies(objecttracker
+ament_target_dependencies(tracker
   rclcpp
   sensor_msgs
+  px4_msgs
   cv_bridge
   OpenCV
 )
@@ -32,7 +32,7 @@ ament_target_dependencies(videoplayback
 )
 
 # Include directories for each target
-target_include_directories(objecttracker PUBLIC
+target_include_directories(tracker PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
@@ -41,10 +41,10 @@ target_include_directories(videoplayback PUBLIC
   $<INSTALL_INTERFACE:include>)
 
 # Set compile features for each target
-target_compile_features(objecttracker PUBLIC c_std_99 cxx_std_17)
+target_compile_features(tracker PUBLIC c_std_99 cxx_std_17)
 target_compile_features(videoplayback PUBLIC c_std_99 cxx_std_17)
 
-install(TARGETS objecttracker videoplayback
+install(TARGETS tracker videoplayback
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
