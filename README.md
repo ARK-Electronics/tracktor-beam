@@ -1,4 +1,4 @@
-![](small_logo.webp)
+![](small_logo.jpeg)
 ## Prerequisites
 
 ```
