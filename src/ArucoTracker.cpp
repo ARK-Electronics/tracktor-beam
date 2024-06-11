@@ -4,6 +4,9 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
+#include <opencv2/core/quaternion.hpp>
+#include <px4_msgs/msg/distance_sensor.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 
 class ArucoTrackerNode : public rclcpp::Node
 {
@@ -12,27 +15,59 @@ public:
 
 private:
 	void image_callback(const sensor_msgs::msg::Image::SharedPtr msg);
-	cv::Mat detect_and_box(const cv::Mat& img);
+	void distance_sensor_callback(const px4_msgs::msg::DistanceSensor::SharedPtr msg);
 
 	rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr _image_sub;
+	rclcpp::Subscription<px4_msgs::msg::DistanceSensor>::SharedPtr _distance_sub;
+
 	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr _image_pub;
+	rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr _target_pose_pub;
 	cv::Ptr<cv::aruco::Dictionary> _dictionary;
+	// float _ground_distance = 0.f;
+	float _ground_distance = 1.f;
+	cv::Mat _camera_matrix;
+	cv::Mat _dist_coeffs;
 };
 
-ArucoTrackerNode::ArucoTrackerNode() : Node("aruco_tracker_node")
+ArucoTrackerNode::ArucoTrackerNode()
+	: Node("aruco_tracker_node")
 {
+	RCLCPP_INFO(this->get_logger(), "Starting ArucoTrackerNode");
+	// Define aruco tag dictionary to use
 	_dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
 
+	// Load camera calibration data from YAML file
+	cv::FileStorage fs("/home/jake/code/ark/offboard_ws/usb_cam_calib.yml", cv::FileStorage::READ);
+	if (fs.isOpened()) {
+		fs["camera_matrix"] >> _camera_matrix;
+		fs["distortion_coefficients"] >> _dist_coeffs;
+		fs.release();
+	} else {
+		RCLCPP_ERROR(this->get_logger(), "Failed to open camera calibration file");
+	}
+
+	if (_camera_matrix.empty() || _dist_coeffs.empty()) {
+		RCLCPP_ERROR(this->get_logger(), "Failed to load camera parameters correctly.");
+	}
+
+	// Setup publishers and subscribers
 	auto qos = rclcpp::QoS(rclcpp::QoSInitialization(RMW_QOS_POLICY_HISTORY_KEEP_LAST, 5));
 	qos.reliability(RMW_QOS_POLICY_RELIABILITY_RELIABLE);
 
-	// USB camera: image_raw
-	// CSI camera: TODO:
 	_image_sub = this->create_subscription<sensor_msgs::msg::Image>(
-		"/image_raw", qos, std::bind(&ArucoTrackerNode::image_callback, this, std::placeholders::_1));
-
+		"/camera", qos, std::bind(&ArucoTrackerNode::image_callback, this, std::placeholders::_1));
+	_distance_sub = this->create_subscription<px4_msgs::msg::DistanceSensor>(
+		"/fmu/out/distance_sensor", qos, std::bind(&ArucoTrackerNode::distance_sensor_callback, this, std::placeholders::_1));
 	_image_pub = this->create_publisher<sensor_msgs::msg::Image>(
 		"/image_proc", qos);
+	_target_pose_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+		"/target_pose", qos);
+}
+
+void ArucoTrackerNode::distance_sensor_callback(const px4_msgs::msg::DistanceSensor::SharedPtr msg)
+{
+	RCLCPP_DEBUG(this->get_logger(), "got distance: %f", msg->current_distance);
+	_ground_distance = msg->current_distance;
 }
 
 void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr msg)
@@ -40,33 +75,70 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 	try {
 		cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
 
-		// Detects and boxes aruco markers
-		cv::Mat img_proc = detect_and_box(cv_ptr->image);
+		std::vector<int> ids;
+		std::vector<std::vector<cv::Point2f>> corners;
+		cv::aruco::detectMarkers(cv_ptr->image, _dictionary, corners, ids);
+		cv::aruco::drawDetectedMarkers(cv_ptr->image, corners, ids);
 
+		// Calculate marker Pose and draw axes
+		for (size_t i = 0; i < ids.size(); i++) {
+			// NOTE: This calculation assumes that the marker is perpendicular to the direction of the view of the camera
+			// NOTE: This calculate is derived from the pinhole camera model
+			// Real world size = (pixel size / focal length) * distance to object
+			float pixel_width = cv::norm(corners[i][0] - corners[i][1]);
+			float focal_length = _camera_matrix.at<double>(0, 0);
+			float marker_size = (pixel_width / focal_length) * _ground_distance;
+			if (!std::isnan(marker_size) && !std::isinf(marker_size)) {
+				RCLCPP_INFO(this->get_logger(), "marker_size: %f", marker_size);
+				std::vector<cv::Point3f> objectPoints;
+				float half_size = marker_size / 2.0f;
+				objectPoints.push_back(cv::Point3f(-half_size,  half_size, 0));  // top left
+				objectPoints.push_back(cv::Point3f( half_size,  half_size, 0));  // top right
+				objectPoints.push_back(cv::Point3f( half_size, -half_size, 0));  // bottom right
+				objectPoints.push_back(cv::Point3f(-half_size, -half_size, 0));  // bottom left
+
+				cv::Vec3d rvec, tvec;
+				cv::solvePnP(objectPoints, corners[i], _camera_matrix, _dist_coeffs, rvec, tvec);
+				cv::aruco::drawAxis(cv_ptr->image, _camera_matrix, _dist_coeffs, rvec, tvec, marker_size);
+
+				RCLCPP_INFO(this->get_logger(), "tvec: [%f, %f, %f]", tvec[0], tvec[1], tvec[2]);
+				RCLCPP_INFO(this->get_logger(), "rvec: [%f, %f, %f]", rvec[0], rvec[1], rvec[2]);
+
+				// Publish target pose
+				geometry_msgs::msg::PoseStamped target_pose;
+				target_pose.header.stamp = msg->header.stamp;
+				target_pose.header.frame_id = "camera_frame"; // TODO: frame_id
+				target_pose.pose.position.x = tvec[0];
+				target_pose.pose.position.y = tvec[1];
+				target_pose.pose.position.z = tvec[2];
+				cv::Mat rot_mat;
+				cv::Rodrigues(rvec, rot_mat);
+				RCLCPP_DEBUG(this->get_logger(), "Rot mat type: %d, rows: %d, cols: %d", rot_mat.type(), rot_mat.rows, rot_mat.cols);
+				// TODO: why is the rotation matrix sometimes malformed?
+				if (rot_mat.type() == CV_64FC1 && rot_mat.rows == 3 && rot_mat.cols == 3) {
+					cv::Quatd quat = cv::Quatd::createFromRotMat(rot_mat).normalize();
+					target_pose.pose.orientation.x = quat.x;
+					target_pose.pose.orientation.y = quat.y;
+					target_pose.pose.orientation.z = quat.z;
+					target_pose.pose.orientation.w = quat.w;
+
+					_target_pose_pub->publish(target_pose);
+				} else {
+					RCLCPP_ERROR(this->get_logger(), "rotation matrix malformed!");
+				}
+			}
+		}
+
+		// Publish image
 		cv_bridge::CvImage out_msg;
-		out_msg.header = msg->header; // Same timestamp and tf frame as input image
+		out_msg.header = msg->header;
 		out_msg.encoding = sensor_msgs::image_encodings::BGR8;
-		out_msg.image = img_proc;
-
+		out_msg.image = cv_ptr->image;
 		_image_pub->publish(*out_msg.toImageMsg().get());
 
 	} catch (const cv_bridge::Exception& e) {
 		RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
 	}
-}
-
-cv::Mat ArucoTrackerNode::detect_and_box(const cv::Mat& img)
-{
-	std::vector<int> ids;
-	std::vector<std::vector<cv::Point2f>> corners;
-	cv::aruco::detectMarkers(img, _dictionary, corners, ids);
-
-	// If at least one marker detected
-	if (ids.size() > 0) {
-		cv::aruco::drawDetectedMarkers(img, corners, ids);
-	}
-
-	return img; // Return the image with detected markers
 }
 
 int main(int argc, char **argv)
