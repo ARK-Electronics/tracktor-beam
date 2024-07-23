@@ -1,62 +1,38 @@
 ![](logo.jpeg)
-## Prerequisites
+
+Launch PX4 sim
+```
+make px4_sitl_default gz_x500_mono_cam_down
+```
+OR for multiple vehicle
+```
+PX4_SYS_AUTOSTART=4001 PX4_SIM_MODEL=x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 1
 
 ```
-sudo apt-get install -y \
-	ros-humble-usb-cam \
-	ros-humble-image-view
-
+AND
 ```
-
-```
-ros2 launch tracktorbeam usbcam.launch.py
-```
-View the image
-```
-ros2 run image_view image_view --ros-args -r image:=/image_proc
-```
-
-### TODO:
-Select USB cam using PID/VID
-- udev rule?
-- custom detection logic?
-
-eg
-```
-v4l2-ctl --list-devices
-Integrated_Webcam_HD: Integrate (usb-0000:00:14.0-11):
-	/dev/video0
-	/dev/video1
-	/dev/media0
-
-USB 2.0 Camera: USB Camera (usb-0000:00:14.0-3.2):
-	/dev/video2
-	/dev/video3
-	/dev/media1
+PX4_SYS_AUTOSTART=4001 PX4_GZ_MODEL_POSE="0,1" PX4_SIM_MODEL=lawnmower_aruco ./build/px4_sitl_default/bin/px4 -i 2
 
 ```
 
-## Camera calibration
-- fisheye calibration
-- https://docs.ros.org/en/rolling/p/camera_calibration/tutorial_mono.html
-USB camera
-https://www.amazon.com/gp/product/B0829HZ3Q7/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
+Launch micro dds
 ```
-ros2 run usb_cam usb_cam_node_exe --ros-args -p video_device:=/dev/video2
-```
-```
-ros2 run camera_calibration cameracalibrator --size 7x9 --square 0.015 --ros-args -r image:=/image_raw
+MicroXRCEAgent udp4 -p 8888
 ```
 
-bridge camera from gz to ros2
+Launch the ros_gz_bridge for briding the camera topic
 ```
 ros2 run ros_gz_bridge parameter_bridge /camera@sensor_msgs/msg/Image@gz.msgs.Image
 ```
 
-bridge spawn entity service from gz to ros2
-current unsupported in ros_gz (pending PR)
-https://github.com/gazebosim/ros_gz/pull/380
+Launch the ros_gz_bridge for briding the camera info topic (this is how we get camera intrinsics)
 ```
-ros2 run ros_gz_bridge parameter_bridge /world/default/create@ros_gz_interfaces/srv/SpawnEntity
+ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo
+```
 
+Launch the ros2 nodes (aruco_tracker and precision_land)
+
+View the video (/image_proc is the annoted image)
+```
+ros2 run rqt_image_view rqt_image_view
 ```
