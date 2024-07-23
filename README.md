@@ -1,4 +1,4 @@
-![](logo.png)
+![](logo.jpeg)
 ## Prerequisites
 
 ```
