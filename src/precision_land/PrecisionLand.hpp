@@ -30,6 +30,7 @@ public:
 	explicit PrecisionLand(rclcpp::Node& node);
 
 	void targetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+	void vehicleLandDetectedCallback(const px4_msgs::msg::VehicleLandDetected::SharedPtr msg);
 
 	// See ModeBasep
 	void onActivate() override;
@@ -40,16 +41,20 @@ private:
 	bool positionReached(const Eigen::Vector3f& target) const;
 
 	enum class State {
+		Idle,
 		Search, 	// Searches for target -- TODO: optionally perform a search pattern
 		Approach, 	// Positioning over landing target while maintaining altitude
 		Descend, 	// Stay over landing target while descending
 		Finished
 	};
 
+	void switchToState(State state);
+	std::string stateName(State state);
+
 	// ros2
 	rclcpp::Node& _node;
 	rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr _target_pose_sub;
-	rclcpp::Subscription<px4_msgs::msg::VehicleLandDetected>::SharedPtr _vehicle_land_detected;
+	rclcpp::Subscription<px4_msgs::msg::VehicleLandDetected>::SharedPtr _vehicle_land_detected_sub;
 
 	// px4_ros2_cpp
 	std::shared_ptr<px4_ros2::OdometryLocalPosition> _vehicle_local_position;
@@ -58,12 +63,9 @@ private:
 
 	// Data
 	State _state = State::Search;
-	Eigen::Vector3f _target_position = {};
+	Eigen::Vector3f _target_position = { NAN, NAN, NAN};
 	float _target_heading = {};
 	float _approach_altitude = {};
-
-	// Trajectory setpoint
-	px4_msgs::msg::TrajectorySetpoint _trajectory_setpoint_msg;
 
 	rclcpp::Time _last_target_timestamp;
 
@@ -76,6 +78,5 @@ private:
 	// Land detection
 	bool _land_detected = false;
 	bool _target_lost = false;
-
-
+	bool _target_lost_prev = false;
 };

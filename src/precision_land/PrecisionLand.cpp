@@ -20,31 +20,27 @@ PrecisionLand::PrecisionLand(rclcpp::Node& node)
 	, _node(node)
 {
 
-	// Publish TrajectorySetpoint
 	_trajectory_setpoint = std::make_shared<px4_ros2::TrajectorySetpointType>(*this);
 
-	// Subscribe to VehicleLocalPosition
 	_vehicle_local_position = std::make_shared<px4_ros2::OdometryLocalPosition>(*this);
 
-	// Subscribe to VehicleAttitude
 	_vehicle_attitude = std::make_shared<px4_ros2::OdometryAttitude>(*this);
 
-	// Subscribe to target_pose
 	_target_pose_sub = _node.create_subscription<geometry_msgs::msg::PoseStamped>("/target_pose",
 			   rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::targetPoseCallback, this, std::placeholders::_1));
 
 	// Subscribe to vehicle_land_detected
-	_vehicle_land_detected = _node.create_subscription<px4_msgs::msg::VehicleLandDetected>("/fmu/out/vehicle_land_detected",
-	rclcpp::QoS(1).best_effort(), [this](const px4_msgs::msg::VehicleLandDetected::SharedPtr msg) {
-		_land_detected = msg->landed;
-	}
-											      );
+	_vehicle_land_detected_sub = _node.create_subscription<px4_msgs::msg::VehicleLandDetected>("/fmu/out/vehicle_land_detected",
+			   rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::vehicleLandDetectedCallback, this, std::placeholders::_1));
+}
+
+void PrecisionLand::vehicleLandDetectedCallback(const px4_msgs::msg::VehicleLandDetected::SharedPtr msg)
+{
+	_land_detected = msg->landed;
 }
 
 void PrecisionLand::targetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-
-	// Last Target timestamp
 	_last_target_timestamp = _node.now();
 
 	// Aruco pose in camera frame
@@ -57,17 +53,20 @@ void PrecisionLand::targetPoseCallback(const geometry_msgs::msg::PoseStamped::Sh
 	aruco_pose.orientation.y = msg->pose.orientation.y;
 	aruco_pose.orientation.z = msg->pose.orientation.z;
 
-
-	// Camera pose in drone frame
-	geometry_msgs::msg::Pose camera_pose;
+	// Convert camera frame to PX4 frame
+	// camera: right, back, up
+	// px4: front, right down,
+	// camera is mounted pointing down
 	Eigen::Matrix3f R;
 	R << 0, -1, 0,
 	1, 0, 0,
 	0, 0, 1;
 	Eigen::Quaternionf quat(R);
-	camera_pose.position.x = 0.12;// camera case and camera position 0.12
-	camera_pose.position.y = 0;// camera case and camera position
-	camera_pose.position.z = 0;// camera case and camera position
+
+	geometry_msgs::msg::Pose camera_pose;
+	camera_pose.position.x = 0;
+	camera_pose.position.y = 0;
+	camera_pose.position.z = 0;
 	camera_pose.orientation.w = quat.w();
 	camera_pose.orientation.x = quat.x();
 	camera_pose.orientation.y = quat.y();
@@ -103,8 +102,6 @@ void PrecisionLand::targetPoseCallback(const geometry_msgs::msg::PoseStamped::Sh
 	// Fetch the position of the aruco in the world frame
 	auto target_position = Eigen::Vector3f(pose_aruco_in_world.position.x, pose_aruco_in_world.position.y, pose_aruco_in_world.position.z);
 	_target_position = target_position;
-
-
 }
 
 void PrecisionLand::onActivate()
@@ -112,9 +109,7 @@ void PrecisionLand::onActivate()
 	generateSearchWaypoints();
 	// Initialize _target_position with NaN values
 	_target_position.setConstant(std::numeric_limits<float>::quiet_NaN());
-	// State transition to Search
-	RCLCPP_INFO(_node.get_logger(), "Switching to State::Search");
-	_state = State::Search;
+	switchToState(State::Search);
 }
 
 void PrecisionLand::onDeactivate()
@@ -125,38 +120,45 @@ void PrecisionLand::onDeactivate()
 void PrecisionLand::updateSetpoint(float dt_s)
 {
 	// Checking target lost
-	auto elapsed = (_node.now().nanoseconds() - _last_target_timestamp.nanoseconds())/1e9;
-	// Based on the state, set the target lost flag
-	if (_state == State::Approach && elapsed > 2.0) {
-		RCLCPP_INFO(_node.get_logger(), "Target lost during approach");
-		_target_lost = true;
-	} else if (_state == State::Descend && elapsed > 0.5) {
-		RCLCPP_INFO(_node.get_logger(), "Target lost during descend");
+	int elapsed_seconds = _node.now().seconds() - _last_target_timestamp.seconds();
+
+	if (elapsed_seconds > 3) {
 		_target_lost = true;
 	} else {
 		_target_lost = false;
 	}
 
-	switch (_state) {
-	case State::Search: {
+	if (_target_lost && !_target_lost_prev) {
+		RCLCPP_INFO(_node.get_logger(), "Target lost: State %s", stateName(_state).c_str());
+	}
 
-		// TODO: logic should use timestamp to detect stale data.
+	_target_lost_prev = _target_lost;
+
+	switch (_state) {
+	case State::Idle: {
+		// No-op -- just spin
+		break;
+	}
+	case State::Search: {
 
 		// If the market has not been detected, search for it
 		if (std::isnan(_target_position.x())) {
 			// Get the next waypoint
 			Eigen::Vector3f target_position = _search_waypoints[_search_waypoint_index];
+
+			px4_msgs::msg::TrajectorySetpoint setpoint;
+
 			// Go to the next waypoint
 			// Publisher for trajectory setpoint
-			_trajectory_setpoint_msg.timestamp = _node.now().nanoseconds() / 1000;
-			_trajectory_setpoint_msg.position = {target_position.x(), target_position.y(), target_position.z()};
-			_trajectory_setpoint_msg.velocity = {NAN, NAN, NAN};
-			_trajectory_setpoint_msg.acceleration = {NAN, NAN, NAN};
-			_trajectory_setpoint_msg.jerk = {NAN, NAN, NAN};
-			_trajectory_setpoint_msg.yaw = NAN;
-			_trajectory_setpoint_msg.yawspeed = NAN;
+			setpoint.timestamp = _node.now().nanoseconds() / 1000;
+			setpoint.position = { target_position.x(), target_position.y(), target_position.z() };
+			setpoint.velocity = { NAN, NAN, NAN };
+			setpoint.acceleration = { NAN, NAN, NAN} ;
+			setpoint.jerk = { NAN, NAN, NAN };
+			setpoint.yaw = NAN;
+			setpoint.yawspeed = NAN;
 			// Publish the trajectory setpoint
-			_trajectory_setpoint->update(_trajectory_setpoint_msg);
+			_trajectory_setpoint->update(setpoint);
 
 
 			// Check if the drone has reached the target position
@@ -172,113 +174,77 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 		// -- Check if the marker has been detected --> State Transition
 		else {
-			RCLCPP_INFO(_node.get_logger(), "Switching to State::Approach");
-			// Target posittion printed
-			// RCLCPP_INFO(_node.get_logger(), "Target position: %f, %f, %f", double(_target_position.x()), double(_target_position.y()), double(_target_position.z()));
-			_state = State::Approach;
+			_approach_altitude = _vehicle_local_position->positionNed().z();
+			switchToState(State::Approach);
 		}
 
 		break;
 	}
 
 	case State::Approach: {
-		// Aproach the target position
-		_approach_altitude = _vehicle_local_position->positionNed().z();
+
+		if (_target_lost) {
+			RCLCPP_INFO(_node.get_logger(), "Failed! Target lost during %s", stateName(_state).c_str());
+			ModeBase::completed(px4_ros2::Result::ModeFailureOther);
+			switchToState(State::Idle);
+			return;
+		}
+
+		px4_msgs::msg::TrajectorySetpoint setpoint;
 
 		auto position = Eigen::Vector3f(_target_position.x(), _target_position.y(), _approach_altitude);
+
 		// Publisher for trajectory setpoint
-		_trajectory_setpoint_msg.timestamp = _node.now().nanoseconds() / 1000;
-		_trajectory_setpoint_msg.position = {position.x(), position.y(), _approach_altitude};
-		_trajectory_setpoint_msg.velocity = {NAN, NAN, NAN};
-		_trajectory_setpoint_msg.acceleration = {NAN, NAN, NAN};
-		_trajectory_setpoint_msg.jerk = {NAN, NAN, NAN};
-		// _trajectory_setpoint_msg.yaw = _target_heading;
-		// _trajectory_setpoint_msg.yawspeed = NAN;
-		// Calculate yawspeed for smooth heading adjustment
-		float current_heading = _vehicle_local_position->heading();
-		float heading_difference = _target_heading - current_heading;
-		float max_yawspeed = 0.1; // Maximum yawspeed (rad/s), adjust for desired smoothness
+		setpoint.timestamp = _node.now().nanoseconds() / 1000;
+		setpoint.position = { position.x(), position.y(), _approach_altitude };
+		setpoint.velocity = { NAN, NAN, NAN };
+		setpoint.acceleration = { NAN, NAN, NAN };
+		setpoint.jerk = { NAN, NAN, NAN };
 
-		// Normalize the heading difference to be within [-pi, pi]
-		heading_difference = atan2(sin(heading_difference), cos(heading_difference));
+		// // Calculate yawspeed for smooth heading adjustment
+		// float heading_difference = _target_heading - _vehicle_local_position->heading();
+		// // Normalize the heading difference to be within [-pi, pi]
+		// heading_difference = atan2(sin(heading_difference), cos(heading_difference));
+		// // Calculate yawspeed to gradually reduce the heading difference
+		// float max_yawspeed = 0.1; // Maximum yawspeed (rad/s), adjust for desired smoothness
+		// float yawspeed = std::clamp(heading_difference, -max_yawspeed, max_yawspeed);
 
-		// Calculate yawspeed to gradually reduce the heading difference
-		float yawspeed = std::clamp(heading_difference, -max_yawspeed, max_yawspeed);
+		setpoint.yaw = _target_heading; // Set yaw to NAN to use yawspeed control
+		// setpoint.yawspeed = yawspeed;
+		setpoint.yawspeed = NAN;
 
-		_trajectory_setpoint_msg.yaw = NAN; // Set yaw to NAN to use yawspeed control
-		_trajectory_setpoint_msg.yawspeed = yawspeed;
+		_trajectory_setpoint->update(setpoint);
 
-		// Publish the trajectory setpoint
-		_trajectory_setpoint->update(_trajectory_setpoint_msg);
-
-
-		// -- Check std::absf(Position - Target < Threshold) --> State Transition
 		if (positionReached(position)) {
-			// If target has been lost, switch to search
-			if (_target_lost) {
-				RCLCPP_INFO(_node.get_logger(), "Switching back to State::Search");
-				_target_position.setConstant(std::numeric_limits<float>::quiet_NaN());
-				_state = State::Search;
-				break;
-			}
-			else {
-				// If target is still detected, switch to descend
-				RCLCPP_INFO(_node.get_logger(), "Switching to State::Descend");
-				_state = State::Descend;
-			}
+			switchToState(State::Descend);
 		}
 
 		break;
 	}
 
 	case State::Descend: {
-		// TODO: check if distance to bottom is still valid
-		// - if invalid stop
-		// - start timeout, switch to failsafe if timed out : failsafe = normal land
 
-		// TODO: while in failsafe (normal land) keep checking conditions to switch back into precision land
-
-
-		auto distance_to_ground = _vehicle_local_position->distanceGround();
-		auto target_z = _vehicle_local_position->positionNed().z() + distance_to_ground + 10;
-		auto position = Eigen::Vector3f(_target_position.x(), _target_position.y(), target_z);
-		auto heading = _target_heading;
-		auto time_now = _node.now();
-
-		// Log the current time and the last target timestamp
-		auto elapsed = time_now - _last_target_timestamp;
-		// Check if the last target timestamp is older than 0.2 second and we are close to the ground
-		if (_target_lost || distance_to_ground < 0.3) {
-			// If the target is lost or we are close to the ground go straight down
-			_trajectory_setpoint_msg.timestamp = _node.now().nanoseconds() / 1000;
-			_trajectory_setpoint_msg.position = {NAN, NAN, NAN};
-			_trajectory_setpoint_msg.velocity = {0.0, 0.0, 0.4};
-			_trajectory_setpoint_msg.acceleration = {0.0, 0.0, NAN};
-			_trajectory_setpoint_msg.jerk = {NAN, NAN, NAN};
-			_trajectory_setpoint_msg.yaw = heading;
-			_trajectory_setpoint_msg.yawspeed = NAN;
-			
-	
-		}
-		else {
-			// If the target is not lost and we are not close to the ground, descend to the target position
-			// Publisher for trajectory setpoint
-			_trajectory_setpoint_msg.timestamp = _node.now().nanoseconds() / 1000;
-			_trajectory_setpoint_msg.position = {position.x(), position.y(), NAN};
-			_trajectory_setpoint_msg.velocity = {NAN, NAN, 0.35};
-			_trajectory_setpoint_msg.acceleration = {NAN, NAN, NAN};
-			_trajectory_setpoint_msg.jerk = {NAN, NAN, NAN};
-			_trajectory_setpoint_msg.yaw = heading;
-			_trajectory_setpoint_msg.yawspeed = NAN;
+		if (_target_lost) {
+			RCLCPP_INFO(_node.get_logger(), "Failed! Target lost during %s", stateName(_state).c_str());
+			ModeBase::completed(px4_ros2::Result::ModeFailureOther);
+			switchToState(State::Idle);
+			return;
 		}
 
-		// Publish the trajectory setpoint
-		_trajectory_setpoint->update(_trajectory_setpoint_msg);
+		px4_msgs::msg::TrajectorySetpoint setpoint;
 
-		// -- Check std::absf(Position - Target < Threshold) --> State Transition
+		setpoint.timestamp = _node.now().nanoseconds() / 1000;
+		setpoint.position = { _target_position.x(), _target_position.y(), NAN };
+		setpoint.velocity = { NAN, NAN, 0.35 };
+		setpoint.acceleration = { NAN, NAN, NAN }; // TODO: limits?
+		setpoint.jerk = { NAN, NAN, NAN }; // TODO: limits?
+		setpoint.yaw = _target_heading;
+		setpoint.yawspeed = NAN;
+
+		_trajectory_setpoint->update(setpoint);
+
 		if (_land_detected) {
-			RCLCPP_INFO(_node.get_logger(), "Switching to State::Finished");
-			_state = State::Finished;
+			switchToState(State::Finished);
 		}
 
 		break;
@@ -305,7 +271,6 @@ void PrecisionLand::generateSearchWaypoints()
 	double layer_spacing = 0.5;
 	int points_per_layer = 16;
 	std::vector<Eigen::Vector3f> waypoints;
-	RCLCPP_INFO(_node.get_logger(), "current_z: %f", double(current_z));
 
 	// Generate waypoints
 	// Calculate the number of layers needed
@@ -356,7 +321,7 @@ void PrecisionLand::generateSearchWaypoints()
 
 bool PrecisionLand::positionReached(const Eigen::Vector3f& target) const
 {
-	// Parameters for delta_position and delta_velocitry
+	// TODO: parameters for delta_position and delta_velocitry
 	static constexpr float kDeltaPosition = 0.25f;
 	static constexpr float kDeltaVelocity = 0.25f;
 
@@ -368,11 +333,34 @@ bool PrecisionLand::positionReached(const Eigen::Vector3f& target) const
 	return (delta_pos.norm() < kDeltaPosition) && (velocity.norm() < kDeltaVelocity);
 }
 
+std::string PrecisionLand::stateName(State state)
+{
+	switch (state) {
+	case State::Idle:
+		return "Idle";
+	case State::Search:
+		return "Search";
+	case State::Approach:
+		return "Approach";
+	case State::Descend:
+		return "Descend";
+	case State::Finished:
+		return "Finished";
+	default:
+		return "Unknown";
+	}
+}
+
+void PrecisionLand::switchToState(State state)
+{
+	RCLCPP_INFO(_node.get_logger(), "Switching to %s", stateName(state).c_str());
+	_state = state;
+}
+
 int main(int argc, char* argv[])
 {
 	rclcpp::init(argc, argv);
 	rclcpp::spin(std::make_shared<px4_ros2::NodeWithMode<PrecisionLand>>(kModeName, kEnableDebugOutput));
 	rclcpp::shutdown();
-
 	return 0;
 }
