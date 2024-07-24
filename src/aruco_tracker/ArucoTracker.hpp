@@ -3,7 +3,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
 #include <opencv2/core/quaternion.hpp>
@@ -33,7 +33,7 @@ private:
 	rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr _target_pose_pub;
 
 	// Data
-	cv::Ptr<cv::aruco::Dictionary> _dictionary;
+	std::unique_ptr<cv::aruco::ArucoDetector> _detector;
 	cv::Mat _camera_matrix;
 	cv::Mat _dist_coeffs;
 

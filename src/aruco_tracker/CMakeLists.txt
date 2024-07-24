@@ -12,11 +12,16 @@ find_package(px4_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
-find_package(OpenCV REQUIRED)
+# NOTE: we build opencv from source, hence the path /usr/local/lib
+find_package(OpenCV 4.10.0 REQUIRED PATHS /usr/local NO_DEFAULT_PATH)
 
 include_directories(${Eigen3_INCLUDE_DIRS})
+include_directories(${OpenCV_INCLUDE_DIRS})
+link_directories(/usr/local/lib)
 
 add_executable(aruco_tracker ArucoTracker.cpp)
+
+target_link_libraries(aruco_tracker ${OpenCV_LIBS})
 
 ament_target_dependencies(aruco_tracker Eigen3 rclcpp px4_msgs sensor_msgs cv_bridge OpenCV)
 

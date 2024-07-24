@@ -7,7 +7,9 @@ ArucoTrackerNode::ArucoTrackerNode()
 	RCLCPP_INFO(this->get_logger(), "Starting ArucoTrackerNode");
 
 	// Define aruco tag dictionary to use
-	_dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+	cv::aruco::DetectorParameters detectorParams = cv::aruco::DetectorParameters();
+	cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+	_detector = std::make_unique<cv::aruco::ArucoDetector>(dictionary, detectorParams);
 
 	// RMW QoS settings
 	auto qos = rclcpp::QoS(1).best_effort();
@@ -50,7 +52,8 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 		// Detect markers
 		std::vector<int> ids;
 		std::vector<std::vector<cv::Point2f>> corners;
-		cv::aruco::detectMarkers(cv_ptr->image, _dictionary, corners, ids);
+		// cv::aruco::detectMarkers(cv_ptr->image, _dictionary, corners, ids);
+		_detector->detectMarkers(cv_ptr->image, corners, ids);
 		cv::aruco::drawDetectedMarkers(cv_ptr->image, corners, ids);
 
 		if (!_camera_matrix.empty() && !_dist_coeffs.empty() && !std::isnan(_distance_to_ground)) {
@@ -88,8 +91,7 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 					cv::Vec3d rvec, tvec;
 					cv::solvePnP(objectPoints, undistortedCorners[i], _camera_matrix, cv::noArray(), rvec, tvec);
 					// Annotate the image
-					cv::aruco::drawAxis(cv_ptr->image, _camera_matrix, cv::noArray(), rvec, tvec, _marker_size);
-
+					cv::drawFrameAxes(cv_ptr->image, _camera_matrix, cv::noArray(), rvec, tvec, _marker_size);
 					// In OpenCV frame
 					_target[0] = tvec[0];
 					_target[1] = tvec[1];
