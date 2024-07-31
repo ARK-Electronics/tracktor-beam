@@ -1,14 +1,12 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import ExecuteProcess, IncludeLaunchDescription
+from launch.actions import ExecuteProcess, IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from launch_ros.substitutions import FindPackageShare
-import os
 
 def generate_launch_description():
     ld = LaunchDescription()
-
 
     # Include the Aruco tracker launch file
     aruco_tracker_launch = IncludeLaunchDescription(
@@ -19,10 +17,15 @@ def generate_launch_description():
         ]))
     )
 
+
+
     # C++ nodes
     precision_land_cpp = Node(
         package="precision_land",
         executable="precision_land",
+        parameters=[
+            {"search_allowed": True},
+        ]
     )
 
     # Add all actions to the launch description

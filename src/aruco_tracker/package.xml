@@ -3,7 +3,7 @@
 <package format="3">
   <name>aruco_tracker</name>
   <version>0.0.1</version>
-  <description>Example mode: Go-to</description>
+  <description>ArUco detector</description>
   <maintainer email="jake@arkelectron.com">Jacob Dahl</maintainer>
   <license>BSD-3-Clause</license>
 
@@ -17,7 +17,6 @@
 
   <!-- Dependencies -->
   <depend>px4_msgs</depend>
-  <!-- <depend>px4_ros2_cpp</depend> -->
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>cv_bridge</depend>

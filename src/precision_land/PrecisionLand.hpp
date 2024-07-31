@@ -68,7 +68,7 @@ private:
 	float _approach_altitude = {};
 
 	rclcpp::Time _last_target_timestamp;
-
+	bool _search_allowed;
 	// Waypoints for Search pattern
 	std::vector<Eigen::Vector3f> _search_waypoints;
 	// Search pattern generation
