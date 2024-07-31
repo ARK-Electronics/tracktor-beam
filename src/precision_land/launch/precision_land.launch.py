@@ -24,7 +24,7 @@ def generate_launch_description():
         package="precision_land",
         executable="precision_land",
         parameters=[
-            {"search_allowed": True},
+            {"search_allowed": False},
         ]
     )
 

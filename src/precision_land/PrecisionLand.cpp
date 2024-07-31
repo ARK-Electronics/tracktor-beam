@@ -110,7 +110,11 @@ void PrecisionLand::onActivate()
 	generateSearchWaypoints();
 	// Initialize _target_position with NaN values
 	_target_position.setConstant(std::numeric_limits<float>::quiet_NaN());
-	switchToState(State::Search);
+	if(_search_allowed) {
+		switchToState(State::Search);
+	} else {
+	switchToState(State::Idle);
+	}
 }
 
 void PrecisionLand::onDeactivate()
@@ -137,7 +141,10 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 	switch (_state) {
 	case State::Idle: {
-		// No-op -- just spin
+		if(!std::isnan(_target_position.x()))
+		{
+			switchToState(State::Approach);
+		}
 		break;
 	}
 	case State::Search: {
@@ -187,6 +194,7 @@ void PrecisionLand::updateSetpoint(float dt_s)
 		if (_target_lost) {
 			RCLCPP_INFO(_node.get_logger(), "Failed! Target lost during %s", stateName(_state).c_str());
 			ModeBase::completed(px4_ros2::Result::ModeFailureOther);
+			_target_position = { NAN, NAN, NAN};
 			switchToState(State::Idle);
 			return;
 		}
