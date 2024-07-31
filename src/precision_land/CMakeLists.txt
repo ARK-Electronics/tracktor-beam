@@ -24,6 +24,9 @@ ament_target_dependencies(precision_land rclcpp Eigen3 px4_ros2_cpp geometry_msg
 target_compile_features(precision_land PUBLIC c_std_99 cxx_std_17)
 
 install(TARGETS precision_land DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 if(BUILD_TESTING)
     find_package(ament_lint_auto REQUIRED)
