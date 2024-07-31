@@ -33,13 +33,6 @@ ArucoTrackerNode::ArucoTrackerNode()
 }
 void ArucoTrackerNode::vehicle_local_position_callback(const px4_msgs::msg::VehicleLocalPosition::SharedPtr msg)
 {
-	// if (msg->dist_bottom_valid) {
-	//  _distance_to_ground = msg->dist_bottom;
-	// } else {
-	//  _distance_to_ground = NAN;
-	// }
-
-	// TODO: why is dist_bottom_valid false in sim?
 	_distance_to_ground = msg->dist_bottom;
 }
 
@@ -52,13 +45,12 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 		// Detect markers
 		std::vector<int> ids;
 		std::vector<std::vector<cv::Point2f>> corners;
-		// cv::aruco::detectMarkers(cv_ptr->image, _dictionary, corners, ids);
 		_detector->detectMarkers(cv_ptr->image, corners, ids);
 		cv::aruco::drawDetectedMarkers(cv_ptr->image, corners, ids);
 
 		if (!_camera_matrix.empty() && !_dist_coeffs.empty() && !std::isnan(_distance_to_ground)) {
+			
 			// Calculate marker Pose and draw axes
-
 			std::vector<std::vector<cv::Point2f>> undistortedCorners;
 
 			for (const auto& corner : corners) {
@@ -74,7 +66,6 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 				float pixel_width = cv::norm(undistortedCorners[i][0] - undistortedCorners[i][1]);
 				float focal_length = _camera_matrix.at<double>(0, 0);
 				_marker_size = (pixel_width / focal_length) * _distance_to_ground;
-				//_marker_size = 0.5; // 50 cm
 
 				if (!std::isnan(_marker_size) && !std::isinf(_marker_size) && _marker_size > 0) {
 
@@ -101,7 +92,7 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 					// Publish target pose
 					geometry_msgs::msg::PoseStamped target_pose;
 					target_pose.header.stamp = msg->header.stamp;
-					target_pose.header.frame_id = "camera_frame"; // TODO: frame_id
+					target_pose.header.frame_id = "camera_frame";
 
 					// Camera frame is RBU
 					target_pose.pose.position.x = _target[0];
@@ -128,7 +119,7 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 			}
 
 		} else {
-			// RCLCPP_ERROR(this->get_logger(), "distance to ground is NAN");
+			RCLCPP_ERROR(this->get_logger(), "Camera intrinsics not set or distance to ground not available!");
 		}
 
 		// Annotate the image
@@ -186,7 +177,7 @@ void ArucoTrackerNode::annotate_image(cv_bridge::CvImagePtr image)
 	stream << "X: "  << _target[0] << " Y: " << _target[1]  << " Z: " << _target[2] << " Marker size: " << _marker_size << " x " << _marker_size << " m ";
 	std::string text_xyz = stream.str();
 
-
+	// Add text to the image
 	int fontFace = cv::FONT_HERSHEY_SIMPLEX;
 	double fontScale = 1;
 	int thickness = 2;
@@ -197,6 +188,7 @@ void ArucoTrackerNode::annotate_image(cv_bridge::CvImagePtr image)
 	cv::putText(image->image, text_xyz, textOrg, fontFace, fontScale, cv::Scalar(0, 255, 255), thickness, 8);
 }
 
+// Main function
 int main(int argc, char** argv)
 {
 	rclcpp::init(argc, argv);

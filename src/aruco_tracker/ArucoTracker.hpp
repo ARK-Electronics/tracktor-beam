@@ -1,3 +1,4 @@
+#pragma once
 #include <array>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
