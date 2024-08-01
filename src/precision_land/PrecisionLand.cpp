@@ -1,8 +1,3 @@
-/****************************************************************************
- * Copyright (c) 2023 PX4 Development Team.
- * SPDX-License-Identifier: BSD-3-Clause
- ****************************************************************************/
-
 #include "PrecisionLand.hpp"
 
 #include <px4_ros2/components/node_with_mode.hpp>
@@ -19,19 +14,19 @@ PrecisionLand::PrecisionLand(rclcpp::Node& node)
 	: ModeBase(node, kModeName)
 	, _node(node)
 {
-
+	// Initialize the PX4_ROS2 modules
 	_trajectory_setpoint = std::make_shared<px4_ros2::TrajectorySetpointType>(*this);
-
 	_vehicle_local_position = std::make_shared<px4_ros2::OdometryLocalPosition>(*this);
-
 	_vehicle_attitude = std::make_shared<px4_ros2::OdometryAttitude>(*this);
 
+	// Subscribe to the target pose and vehicle land detected topics
 	_target_pose_sub = _node.create_subscription<geometry_msgs::msg::PoseStamped>("/target_pose",
 			   rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::targetPoseCallback, this, std::placeholders::_1));
-
-	// Subscribe to vehicle_land_detected
 	_vehicle_land_detected_sub = _node.create_subscription<px4_msgs::msg::VehicleLandDetected>("/fmu/out/vehicle_land_detected",
 			   rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::vehicleLandDetectedCallback, this, std::placeholders::_1));
+	// Get the search_allowed parameter
+	_node.declare_parameter<bool>("search_allowed", true);
+	_node.get_parameter("search_allowed", _search_allowed);
 	
 }
 
@@ -112,14 +107,15 @@ void PrecisionLand::onActivate()
 	_target_position.setConstant(std::numeric_limits<float>::quiet_NaN());
 	if(_search_allowed) {
 		switchToState(State::Search);
-	} else {
+	} 
+	else {
 	switchToState(State::Idle);
 	}
 }
 
 void PrecisionLand::onDeactivate()
 {
-	// TODO:
+	RCLCPP_INFO(_node.get_logger(), "Deactivating PrecisionLand");
 }
 
 void PrecisionLand::updateSetpoint(float dt_s)
@@ -129,11 +125,12 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 	if (elapsed_seconds > 3) {
 		_target_lost = true;
-	} else {
+	} 
+	else {
 		_target_lost = false;
 	}
 
-	if (_target_lost && !_target_lost_prev) {
+	if (_target_lost && !_target_lost_prev && _state != State::Search) {
 		RCLCPP_INFO(_node.get_logger(), "Target lost: State %s", stateName(_state).c_str());
 	}
 
@@ -191,14 +188,6 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 	case State::Approach: {
 
-		if (_target_lost) {
-			RCLCPP_INFO(_node.get_logger(), "Failed! Target lost during %s", stateName(_state).c_str());
-			ModeBase::completed(px4_ros2::Result::ModeFailureOther);
-			_target_position = { NAN, NAN, NAN};
-			switchToState(State::Idle);
-			return;
-		}
-
 		px4_msgs::msg::TrajectorySetpoint setpoint;
 
 		auto position = Eigen::Vector3f(_target_position.x(), _target_position.y(), _approach_altitude);
@@ -225,7 +214,16 @@ void PrecisionLand::updateSetpoint(float dt_s)
 		_trajectory_setpoint->update(setpoint);
 
 		if (positionReached(position)) {
-			switchToState(State::Descend);
+			if (_target_lost) {
+				RCLCPP_INFO(_node.get_logger(), "Failed! Target lost during %s", stateName(_state).c_str());
+				ModeBase::completed(px4_ros2::Result::ModeFailureOther);
+				_target_position = { NAN, NAN, NAN};
+				switchToState(State::Idle);
+			}
+			else {
+				switchToState(State::Descend);
+			}
+			
 		}
 
 		break;
@@ -233,26 +231,35 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 	case State::Descend: {
 
-		if (_target_lost) {
-			RCLCPP_INFO(_node.get_logger(), "Failed! Target lost during %s", stateName(_state).c_str());
-			ModeBase::completed(px4_ros2::Result::ModeFailureOther);
-			switchToState(State::Idle);
-			return;
-		}
+		auto distance_to_ground = _vehicle_local_position->distanceGround();
 
 		px4_msgs::msg::TrajectorySetpoint setpoint;
 
-		setpoint.timestamp = _node.now().nanoseconds() / 1000;
-		setpoint.position = { _target_position.x(), _target_position.y(), NAN };
-		setpoint.velocity = { NAN, NAN, 0.35 };
-		setpoint.acceleration = { NAN, NAN, NAN }; // TODO: limits?
-		setpoint.jerk = { NAN, NAN, NAN }; // TODO: limits?
-		setpoint.yaw = _target_heading;
-		setpoint.yawspeed = NAN;
+		if (_target_lost || distance_to_ground < 0.2) {
+			// If the target is lost or we are close to the ground go straight down
+			setpoint.timestamp = _node.now().nanoseconds() / 1000;
+			setpoint.position = {NAN, NAN, NAN};
+			setpoint.velocity = {0.0, 0.0, 0.35};
+			setpoint.acceleration = {0.0, 0.0, NAN};
+			setpoint.jerk = {NAN, NAN, NAN};
+			setpoint.yaw = _target_heading;
+			setpoint.yawspeed = NAN;
+
+		}
+		else {
+			setpoint.timestamp = _node.now().nanoseconds() / 1000;
+			setpoint.position = { _target_position.x(), _target_position.y(), NAN };
+			setpoint.velocity = { NAN, NAN, 0.35 };
+			setpoint.acceleration = { NAN, NAN, NAN }; 
+			setpoint.jerk = { NAN, NAN, NAN }; // 
+			setpoint.yaw = _target_heading;
+			setpoint.yawspeed = NAN;
+		}
 
 		_trajectory_setpoint->update(setpoint);
 
 		if (_land_detected) {
+
 			switchToState(State::Finished);
 		}
 
@@ -273,7 +280,7 @@ void PrecisionLand::generateSearchWaypoints()
 	// Parameters for the search pattern
 	double start_x = 0.0;
 	double start_y = 0.0;
-	double current_z = _vehicle_local_position->positionNed().z();
+	double altitude = _vehicle_local_position->positionNed().z();
 	auto min_z = -1.0;
 
 	double max_radius = 2.0;
@@ -281,9 +288,13 @@ void PrecisionLand::generateSearchWaypoints()
 	int points_per_layer = 16;
 	std::vector<Eigen::Vector3f> waypoints;
 
-	// Generate waypoints
-	// Calculate the number of layers needed
-	int num_layers = (static_cast<int>((min_z - current_z) / layer_spacing) / 2) < 1 ? 1 : (static_cast<int>((min_z - current_z) / layer_spacing) / 2);
+	
+	// Make sure the altitude is above the minimum altitude + 2 * layer_spacing
+	if ((altitude + 2 * layer_spacing) > min_z) {
+		altitude = min_z - 2 * layer_spacing;
+	}
+	// Calculate the number of layers
+	int num_layers = (static_cast<int>((min_z - altitude) / layer_spacing) / 2);
 
 
 	// Generate waypoints
@@ -297,7 +308,7 @@ void PrecisionLand::generateSearchWaypoints()
 			double angle = 2.0 * M_PI * point / points_per_layer;
 			double x = start_x + radius * cos(angle);
 			double y = start_y + radius * sin(angle);
-			double z = current_z;
+			double z = altitude;
 
 			layer_waypoints.push_back(Eigen::Vector3f(x, y, z));
 			radius += max_radius / points_per_layer;
@@ -307,21 +318,21 @@ void PrecisionLand::generateSearchWaypoints()
 		waypoints.insert(waypoints.end(), layer_waypoints.begin(), layer_waypoints.end());
 
 		// Decrease the altitude for the inward spiral
-		current_z += layer_spacing;
+		altitude += layer_spacing;
 
 		// Reverse the layer waypoints for spiral in
 		std::reverse(layer_waypoints.begin(), layer_waypoints.end());
 
 		// Adjust the z-coordinate for the inward spiral
 		for (auto& waypoint : layer_waypoints) {
-			waypoint.z() = current_z;
+			waypoint.z() = altitude;
 		}
 
 		// Push the reversed waypoints to the main waypoints vector
 		waypoints.insert(waypoints.end(), layer_waypoints.begin(), layer_waypoints.end());
 
 		// Decrease the altitude for the next outward spiral
-		current_z += layer_spacing;
+		altitude += layer_spacing;
 	}
 
 	// Set the search waypoints
@@ -330,15 +341,15 @@ void PrecisionLand::generateSearchWaypoints()
 
 bool PrecisionLand::positionReached(const Eigen::Vector3f& target) const
 {
-	// TODO: parameters for delta_position and delta_velocitry
+	// Define the position and velocity thresholds
 	static constexpr float kDeltaPosition = 0.25f;
 	static constexpr float kDeltaVelocity = 0.25f;
 
+	// Get the current position and velocity
 	auto position = _vehicle_local_position->positionNed();
 	auto velocity = _vehicle_local_position->velocityNed();
 
 	const auto delta_pos = target - position;
-	// NOTE: this does NOT handle a moving target!
 	return (delta_pos.norm() < kDeltaPosition) && (velocity.norm() < kDeltaVelocity);
 }
 

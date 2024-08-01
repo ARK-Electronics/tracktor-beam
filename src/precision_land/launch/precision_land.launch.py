@@ -19,12 +19,12 @@ def generate_launch_description():
 
 
 
-    # C++ nodes
+    # Precision land node
     precision_land_cpp = Node(
         package="precision_land",
         executable="precision_land",
         parameters=[
-            {"search_allowed": False},
+            {"search_allowed": True},
         ]
     )
 
