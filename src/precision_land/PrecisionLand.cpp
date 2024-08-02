@@ -4,6 +4,7 @@
 #include <px4_ros2/utils/geometry.hpp>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <algorithm>
 
 static const std::string kModeName = "PrecisionLandCustom";
 static const bool kEnableDebugOutput = true;
@@ -232,8 +233,23 @@ void PrecisionLand::updateSetpoint(float dt_s)
 	case State::Descend: {
 
 		auto distance_to_ground = _vehicle_local_position->distanceGround();
+		float Kp = 0.6;
+		float Ki = 0.01;  // Integral gain
+    	float max_velocity = 0.5; // Maximum velocity for safety
 
 		px4_msgs::msg::TrajectorySetpoint setpoint;
+		static float integral_x = 0.0; // Initialize integral term for X axis
+		static float integral_y = 0.0; // Initialize integral term for Y axis
+		static float last_time = NAN; // Initialize last_time to NAN
+
+		auto current_time = _node.now().nanoseconds() / 1000;
+		float dt;
+		if (std::isnan(last_time)) {
+			dt = 0.1; // Default dt for the first iteration
+		} else {
+			dt = (current_time - last_time) / 1e6; // Convert nanoseconds to seconds
+		}
+		last_time = current_time;
 
 		if (_target_lost || distance_to_ground < 0.2) {
 			// If the target is lost or we are close to the ground go straight down
@@ -244,12 +260,27 @@ void PrecisionLand::updateSetpoint(float dt_s)
 			setpoint.jerk = {NAN, NAN, NAN};
 			setpoint.yaw = _target_heading;
 			setpoint.yawspeed = NAN;
+			last_time = NAN;
 
 		}
 		else {
+			float error_x = _target_position.x() - _vehicle_local_position->positionNed().x();
+			float error_y = _target_position.y() - _vehicle_local_position->positionNed().y();
+
+			// Calculate the velocity using P and I terms
+			float velocity_x = Kp * error_x + Ki * integral_x;
+			float velocity_y = Kp * error_y + Ki * integral_y;
+
+			 // Accumulate the integral error
+			integral_x += error_x * dt;
+			integral_y += error_y * dt;
+
+			// Limit the velocity for safety
+			velocity_x = std::clamp(velocity_x, -max_velocity, max_velocity);
+			velocity_y = std::clamp(velocity_y, -max_velocity, max_velocity);
 			setpoint.timestamp = _node.now().nanoseconds() / 1000;
-			setpoint.position = { _target_position.x(), _target_position.y(), NAN };
-			setpoint.velocity = { NAN, NAN, 0.35 };
+			setpoint.position = { NAN, NAN, NAN };
+			setpoint.velocity = { velocity_x, velocity_y, 0.35 };
 			setpoint.acceleration = { NAN, NAN, NAN }; 
 			setpoint.jerk = { NAN, NAN, NAN }; // 
 			setpoint.yaw = _target_heading;
