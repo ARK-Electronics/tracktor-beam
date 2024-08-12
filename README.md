@@ -2,7 +2,7 @@
 
 Launch PX4 sim
 ```
-make px4_sitl_default gz_x500_mono_cam_down
+make px4_sitl_default gz_x500_mono_cam_down_aruco
 ```
 OR for multiple vehicle
 ```
