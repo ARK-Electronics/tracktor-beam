@@ -53,7 +53,7 @@ private:
 
 	enum class State {
 		Idle,
-		Search, 	// Searches for target -- TODO: optionally perform a search pattern
+		Search, 	// Searches for target using a search pattern
 		Approach, 	// Positioning over landing target while maintaining altitude
 		Descend, 	// Stay over landing target while descending
 		Finished
@@ -92,9 +92,12 @@ private:
 	// Parameters
     float _param_descent_vel = {};
     float _param_vel_p_gain = {};
+    float _param_vel_i_gain = {};
     float _param_max_velocity = {};
-    float _param_min_velocity = {};
     float _param_target_timeout = {};
     float _param_delta_position = {};
     float _param_delta_velocity = {};
+
+    float _vel_x_integral {};
+    float _vel_y_integral {};
 };

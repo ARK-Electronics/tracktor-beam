@@ -39,21 +39,22 @@ void PrecisionLand::loadParameters()
 {
 	_node.declare_parameter<float>("descent_vel", 1.0);
 	_node.declare_parameter<float>("vel_p_gain", 1.5);
+	_node.declare_parameter<float>("vel_i_gain", 0.0);
 	_node.declare_parameter<float>("max_velocity", 3.0);
-	_node.declare_parameter<float>("min_velocity", 0.1);
 	_node.declare_parameter<float>("target_timeout", 3.0);
 	_node.declare_parameter<float>("delta_position", 0.25);
 	_node.declare_parameter<float>("delta_velocity", 0.25);
 
 	_node.get_parameter("descent_vel", _param_descent_vel);
 	_node.get_parameter("vel_p_gain", _param_vel_p_gain);
+	_node.get_parameter("vel_i_gain", _param_vel_i_gain);
 	_node.get_parameter("max_velocity", _param_max_velocity);
-	_node.get_parameter("min_velocity", _param_min_velocity);
 	_node.get_parameter("target_timeout", _param_target_timeout);
 	_node.get_parameter("delta_position", _param_delta_position);
 	_node.get_parameter("delta_velocity", _param_delta_velocity);
 
 	RCLCPP_INFO(_node.get_logger(), "descent_vel: %f", _param_descent_vel);
+	RCLCPP_INFO(_node.get_logger(), "vel_i_gain: %f", _param_vel_i_gain);
 }
 
 void PrecisionLand::vehicleLandDetectedCallback(const px4_msgs::msg::VehicleLandDetected::SharedPtr msg)
@@ -91,12 +92,10 @@ PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
 	Eigen::Affine3d camera_transform = Eigen::Translation3d(0, 0, 0) * quat_NED;
 	Eigen::Affine3d tag_transform = Eigen::Translation3d(tag.position) * tag.orientation;
 	Eigen::Affine3d tag_world_transform = drone_transform * camera_transform * tag_transform;
-	Eigen::Vector3d tag_world_position = tag_world_transform.translation();
 
 	ArucoTag world_tag = {
-		.position = tag_world_position,
+		.position = tag_world_transform.translation(),
 		.orientation = Eigen::Quaterniond(tag_world_transform.rotation()),
-		// .orientation = Eigen::Quaterniond(1., 0., 0., 0.),
 		.timestamp = tag.timestamp,
 	};
 
@@ -181,9 +180,8 @@ void PrecisionLand::updateSetpoint(float dt_s)
 		setpoint.velocity = { NAN, NAN, NAN };
 		setpoint.acceleration = { NAN, NAN, NAN} ;
 		setpoint.jerk = { NAN, NAN, NAN };
-		setpoint.yaw = px4_ros2::quaternionToYaw(_tag.orientation);
+		setpoint.yaw = NAN;
 		setpoint.yawspeed = NAN;
-		// Publish the trajectory setpoint
 		_trajectory_setpoint->update(setpoint);
 
 		if (positionReached(target_position)) {
@@ -223,15 +221,31 @@ void PrecisionLand::updateSetpoint(float dt_s)
 Eigen::Vector2f PrecisionLand::calculateVelocitySetpointXY()
 {
 	float p_gain = _param_vel_p_gain;
+	float i_gain = _param_vel_i_gain;
 
+	// P component
 	float delta_pos_x = _vehicle_local_position->positionNed().x() - _tag.position.x();
 	float delta_pos_y = _vehicle_local_position->positionNed().y() - _tag.position.y();
-	float vx = -1.f * delta_pos_x * p_gain;
-	float vy = -1.f * delta_pos_y * p_gain;
+
+	// I component
+	_vel_x_integral += delta_pos_x;
+	_vel_y_integral += delta_pos_y;
+	float max_integral = _param_max_velocity;
+	_vel_x_integral = std::clamp(_vel_x_integral, -1.f * max_integral, max_integral);
+	_vel_y_integral = std::clamp(_vel_y_integral, -1.f * max_integral, max_integral);
+
+	float Xp = delta_pos_x * p_gain;
+	float Xi = _vel_x_integral * i_gain;
+	float Yp = delta_pos_y * p_gain;
+	float Yi = _vel_y_integral * i_gain;
+
+	// Sum P and I gains
+	float vx = -1.f * (Xp + Xi);
+	float vy = -1.f * (Yp + Yi);
 
 	// 0.1m/s min vel and 3m/s max vel
-	std::clamp(vx, _param_min_velocity, _param_max_velocity);
-	std::clamp(vy, _param_min_velocity, _param_max_velocity);
+	vx = std::clamp(vx, -1.f * _param_max_velocity, _param_max_velocity);
+	vy = std::clamp(vy, -1.f * _param_max_velocity, _param_max_velocity);
 
 	return Eigen::Vector2f(vx, vy);
 }
@@ -306,7 +320,6 @@ void PrecisionLand::generateSearchWaypoints()
 		current_z += layer_spacing;
 	}
 
-	// Set the search waypoints
 	_search_waypoints = waypoints;
 }
 
