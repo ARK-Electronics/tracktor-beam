@@ -40,6 +40,31 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 		_detector->detectMarkers(cv_ptr->image, corners, ids);
 		cv::aruco::drawDetectedMarkers(cv_ptr->image, corners, ids);
 
+		// Update detection history
+        for (auto& [id, history] : _ids_hashmap) {
+            std::rotate(history.rbegin(), history.rbegin() + 1, history.rend());
+            history[0] = 0; // Reset current frame detection to 0
+        }
+
+        // Mark detected markers in history
+        for (int id : ids) {
+            if (_ids_hashmap.find(id) == _ids_hashmap.end()) {
+                _ids_hashmap[id] = std::vector<int>(_num_detected, 0);
+            }
+            _ids_hashmap[id][0] = 1; // Detected in current frame
+        }
+
+        // Filter out markers based on precision
+        auto it = ids.begin();
+        while (it != ids.end()) {
+            double precision = std::accumulate(_ids_hashmap[*it].begin(), _ids_hashmap[*it].end(), 0.0) / _num_detected * 100.0;
+            if (precision < _min_prec_value) {
+                it = ids.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
 		if (!_camera_matrix.empty() && !_dist_coeffs.empty()) {
 			// Calculate marker Pose and draw axes
 
