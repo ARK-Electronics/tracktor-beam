@@ -1,20 +1,85 @@
 ![](logo.jpeg)
 
+# ROS2 & PX4 ArUco Detection using OpenCV
+Explore the integration of ROS2, PX4, and OpenCV for advanced ArUco marker detection. In this tutorial, we demonstrate how to leverage ROS2's powerful communication framework and PX4's flight control capabilities to implement precise marker detection using OpenCV. Learn how to set up your environment, process camera feeds, and detect ArUco markers in real-time, enabling enhanced navigation and interaction for autonomous drones and robotic systems. Whether you're a beginner or an experienced developer, this tutorial will guide you through the essential steps to achieve robust marker detection and seamless integration with your ROS2 and PX4 projects.
+
+
+### Video Walkthrough
+
+### Prerequisites
+* Ubuntu 22.04
+* ROS2 Humble
+* PX4 Autopilot with aArUco Marker and downward facing camera
+* Micro XRCE-DDS Agent
+* QGroundControl
+* OpenCV 4.10.0
+
+You can find the required instructions collected below
+
+https://docs.px4.io/main/en/ros2/user_guide.html
+
+To get the right PX4-Autopilot:
+```
+git clone git@github.com:dakejahl/PX4-Autopilot.git
+cd PX4-Autopilot
+git checkout dev/aruco_tag_world 
+```
+
+For the OpenCV part follow the instructions below
+
+## Usage
+
+### Setup the Workspace
+Make sure you source ROS2 Humble in the terminal you are using.
+```
+source /opt/ros/humble/setup.bash
+```
+OR
+Just add the line above to your bashrc, in that case it is going to be sourced every time you open a terminal.
+```
+nano ~/.bashrc
+```
+
+Navigate to the directory you would like to place the worskpace and then run the following
+```
+git clone https://github.com/ARK-Electronics/tracktor-beam.git
+```
+Then navigate into the workspace:
+```
+cd tracktor-beam
+```
+Checkout to the correct branch
+```
+git checkout aruco_detection_usb_cam 
+```
+Install OpenCV from source
+```
+./install_opencv.sh 
+```
+Install the submoduls
+```
+git submodule update --init --recursive
+```
+Build the workspace
+```
+colcon build
+```
+After this runs, we do not need to build the whole workspace again, you can just build the individual packages you have modified
+
+```
+colcon build --packages-select aruco_tracker
+```
+Source the workspace
+```
+source install/setup.bash 
+```
+### Run the example
+
+#### Run the simulation environment
 Launch PX4 sim
 ```
 make px4_sitl_default gz_x500_mono_cam_down
 ```
-OR for multiple vehicle
-```
-PX4_SYS_AUTOSTART=4001 PX4_SIM_MODEL=x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 1
-
-```
-AND
-```
-PX4_SYS_AUTOSTART=4001 PX4_GZ_MODEL_POSE="0,1" PX4_SIM_MODEL=lawnmower_aruco ./build/px4_sitl_default/bin/px4 -i 2
-
-```
-
 Launch micro dds
 ```
 MicroXRCEAgent udp4 -p 8888

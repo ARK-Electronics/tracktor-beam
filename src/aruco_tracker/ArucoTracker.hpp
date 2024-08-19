@@ -1,3 +1,4 @@
+#pragma once
 #include <array>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
@@ -26,7 +27,6 @@ private:
 
 	// ROS2 Subscribers and Publishers
 	rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr _image_sub;
-	rclcpp::Subscription<px4_msgs::msg::VehicleLocalPosition>::SharedPtr _vehicle_local_position_sub;
 	rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr _camera_info_sub;
 
 	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr _image_pub;
@@ -38,8 +38,6 @@ private:
 	cv::Mat _dist_coeffs;
 
 	// State
-	float _distance_to_ground = {NAN};
-	float heading = {};
 	std::array<double, 3> _target;
 	double _marker_size = {0.0};
 };
