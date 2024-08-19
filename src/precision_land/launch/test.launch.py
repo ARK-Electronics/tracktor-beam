@@ -1,6 +1,7 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import ExecuteProcess
+from launch_ros.substitutions import FindPackageShare
+from launch.substitutions import PathJoinSubstitution
 
 def generate_launch_description():
     return LaunchDescription([
@@ -29,7 +30,10 @@ def generate_launch_description():
             name='precision_land',
             output='screen',
             parameters=[
-                '/home/jake/code/ark/tracktor-beam/src/precision_land/params.yaml'
+                PathJoinSubstitution([
+                    FindPackageShare('precision_land'),
+                    'cfg/params.yaml'
+                ])
             ]
         ),
     ])
