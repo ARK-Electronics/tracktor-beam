@@ -1,0 +1,3 @@
+aruco_tracker:
+  ros_parameters:
+    aruco_id: 0
