@@ -37,11 +37,6 @@ private:
 	// State
 	std::array<double, 3> _target;
 	double _marker_size = {0.0};
-
-	// Filter
-	int _num_detected = 60; // Number of frames to track for each marker
-    int _min_prec_value = 90; // Minimum precision percentage to consider the marker valid
-    std::map<int, std::vector<int>> _ids_hashmap; // Tracking detection history for each marker
 	int aruco_id;
 };
 
