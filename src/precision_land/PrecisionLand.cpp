@@ -141,15 +141,7 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 		auto waypoint_position = _search_waypoints[_search_waypoint_index];
 
-		px4_msgs::msg::TrajectorySetpoint setpoint;
-		setpoint.timestamp = _node.now().nanoseconds() / 1000;
-		setpoint.position = { waypoint_position.x(), waypoint_position.y(), waypoint_position.z() };
-		setpoint.velocity = { NAN, NAN, NAN };
-		setpoint.acceleration = { NAN, NAN, NAN} ;
-		setpoint.jerk = { NAN, NAN, NAN };
-		setpoint.yaw = NAN;
-		setpoint.yawspeed = NAN;
-		_trajectory_setpoint->update(setpoint);
+		_trajectory_setpoint->updatePosition(waypoint_position);
 
 		if (positionReached(waypoint_position)) {
 			_search_waypoint_index++;
@@ -174,15 +166,7 @@ void PrecisionLand::updateSetpoint(float dt_s)
 		// Approach using position setpoints
 		auto target_position = Eigen::Vector3f(_tag.position.x(), _tag.position.y(), _approach_altitude);
 
-		px4_msgs::msg::TrajectorySetpoint setpoint;
-		setpoint.timestamp = _node.now().nanoseconds() / 1000;
-		setpoint.position = { target_position.x(), target_position.y(), target_position.z() };
-		setpoint.velocity = { NAN, NAN, NAN };
-		setpoint.acceleration = { NAN, NAN, NAN} ;
-		setpoint.jerk = { NAN, NAN, NAN };
-		setpoint.yaw = NAN;
-		setpoint.yawspeed = NAN;
-		_trajectory_setpoint->update(setpoint);
+		_trajectory_setpoint->updatePosition(target_position);
 
 		if (positionReached(target_position)) {
 			switchToState(State::Descend);
