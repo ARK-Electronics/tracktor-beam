@@ -1,0 +1,16 @@
+[Unit]
+Description=Aruco Tracker Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /home/jetson/code/start_aruco_tracker.sh
+Restart=on-failure
+RestartSec=5s
+Environment="ROS_LOG_DIR=/var/log/ros2"
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=aruco_tracker_service
+
+[Install]
+WantedBy=multi-user.target

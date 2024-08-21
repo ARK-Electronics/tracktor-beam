@@ -1,0 +1,20 @@
+[Unit]
+Description=USB Camera Driver
+Wants=network.target
+After=network.target network-online.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /home/jetson/code/run_usb_cam.sh
+Restart=on-failure
+RestartSec=5s
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="ROS_DISTRO=humble"
+Environment="RMW_IMPLEMENTATION=rmw_fastrtps_cpp"
+Environment="ROS_LOG_DIR=/var/log/ros2"
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=usb_cam_service
+
+[Install]
+WantedBy=multi-user.target
