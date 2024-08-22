@@ -1,8 +1,3 @@
-/****************************************************************************
- * Copyright (c) 2023 PX4 Development Team.
- * SPDX-License-Identifier: BSD-3-Clause
- ****************************************************************************/
-
 #include "PrecisionLand.hpp"
 
 #include <px4_ros2/components/node_with_mode.hpp>
@@ -30,7 +25,7 @@ PrecisionLand::PrecisionLand(rclcpp::Node& node)
 			   rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::targetPoseCallback, this, std::placeholders::_1));
 
 	_vehicle_land_detected_sub = _node.create_subscription<px4_msgs::msg::VehicleLandDetected>("/fmu/out/vehicle_land_detected",
-			   rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::vehicleLandDetectedCallback, this, std::placeholders::_1));
+				     rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::vehicleLandDetectedCallback, this, std::placeholders::_1));
 
 	loadParameters();
 }
@@ -81,8 +76,8 @@ PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
 	// NED: X forward, Y right, Z away from viewer
 	Eigen::Matrix3d R;
 	R << 0, -1, 0,
-		 1, 0, 0,
-		 0, 0, 1;
+	1, 0, 0,
+	0, 0, 1;
 	Eigen::Quaterniond quat_NED(R);
 
 	auto vehicle_position = Eigen::Vector3d(_vehicle_local_position->positionNed().cast<double>());
@@ -119,6 +114,7 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 	if (target_lost && !_target_lost_prev) {
 		RCLCPP_INFO(_node.get_logger(), "Target lost: State %s", stateName(_state).c_str());
+
 	} else if (!target_lost && _target_lost_prev) {
 		RCLCPP_INFO(_node.get_logger(), "Target acquired");
 	}
@@ -131,6 +127,7 @@ void PrecisionLand::updateSetpoint(float dt_s)
 		// No-op -- just spin
 		break;
 	}
+
 	case State::Search: {
 
 		if (!std::isnan(_tag.position.x())) {
@@ -145,6 +142,7 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 		if (positionReached(waypoint_position)) {
 			_search_waypoint_index++;
+
 			// If we have searched all waypoints, start over
 			if (_search_waypoint_index >= static_cast<int>(_search_waypoints.size())) {
 				_search_waypoint_index = 0;
@@ -186,7 +184,8 @@ void PrecisionLand::updateSetpoint(float dt_s)
 
 		// Descend using velocity setpoints and P velocity controller for XY
 		Eigen::Vector2f vel = calculateVelocitySetpointXY();
-		_trajectory_setpoint->update(Eigen::Vector3f(vel.x(), vel.y(), _param_descent_vel), std::nullopt, px4_ros2::quaternionToYaw(_tag.orientation));
+		_trajectory_setpoint->update(Eigen::Vector3f(vel.x(), vel.y(), _param_descent_vel), std::nullopt,
+					     px4_ros2::quaternionToYaw(_tag.orientation));
 
 		if (_land_detected) {
 			switchToState(State::Finished);
@@ -264,7 +263,8 @@ void PrecisionLand::generateSearchWaypoints()
 
 	// Generate waypoints
 	// Calculate the number of layers needed
-	int num_layers = (static_cast<int>((min_z - current_z) / layer_spacing) / 2) < 1 ? 1 : (static_cast<int>((min_z - current_z) / layer_spacing) / 2);
+	int num_layers = (static_cast<int>((min_z - current_z) / layer_spacing) / 2) < 1 ? 1 : (static_cast<int>((
+				 min_z - current_z) / layer_spacing) / 2);
 
 	// Generate waypoints
 	for (int layer = 0; layer < num_layers; ++layer) {
@@ -322,14 +322,19 @@ std::string PrecisionLand::stateName(State state)
 	switch (state) {
 	case State::Idle:
 		return "Idle";
+
 	case State::Search:
 		return "Search";
+
 	case State::Approach:
 		return "Approach";
+
 	case State::Descend:
 		return "Descend";
+
 	case State::Finished:
 		return "Finished";
+
 	default:
 		return "Unknown";
 	}

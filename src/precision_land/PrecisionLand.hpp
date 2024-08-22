@@ -1,8 +1,3 @@
-/****************************************************************************
- * Copyright (c) 2023 PX4 Development Team.
- * SPDX-License-Identifier: BSD-3-Clause
- ****************************************************************************/
-
 #pragma once
 
 #include <px4_ros2/components/mode.hpp>
@@ -90,14 +85,14 @@ private:
 	int _search_waypoint_index = 0;
 
 	// Parameters
-    float _param_descent_vel = {};
-    float _param_vel_p_gain = {};
-    float _param_vel_i_gain = {};
-    float _param_max_velocity = {};
-    float _param_target_timeout = {};
-    float _param_delta_position = {};
-    float _param_delta_velocity = {};
+	float _param_descent_vel = {};
+	float _param_vel_p_gain = {};
+	float _param_vel_i_gain = {};
+	float _param_max_velocity = {};
+	float _param_target_timeout = {};
+	float _param_delta_position = {};
+	float _param_delta_velocity = {};
 
-    float _vel_x_integral {};
-    float _vel_y_integral {};
+	float _vel_x_integral {};
+	float _vel_y_integral {};
 };

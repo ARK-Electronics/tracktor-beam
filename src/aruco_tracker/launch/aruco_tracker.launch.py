@@ -22,7 +22,7 @@ def generate_launch_description():
             name='aruco_tracker',
             output='screen',
             parameters=[
-                PathJoinSubstitution([FindPackageShare('aruco_tracker'), 'config', 'aruco_tracker.yaml'])
+                PathJoinSubstitution([FindPackageShare('aruco_tracker'), 'cfg', 'params.yaml'])
             ]
         ),
     ])

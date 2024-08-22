@@ -1,5 +1,4 @@
 #pragma once
-#include <array>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -13,30 +12,27 @@
 class ArucoTrackerNode : public rclcpp::Node
 {
 public:
-	// Constructor
 	ArucoTrackerNode();
 
 private:
-	// Callbacks
+	void loadParameters();
+
 	void image_callback(const sensor_msgs::msg::Image::SharedPtr msg);
 	void camera_info_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
-	// Image processing
-	void annotate_image(cv_bridge::CvImagePtr image);
 
-	// ROS2 Subscribers and Publishers
+	void annotate_image(cv_bridge::CvImagePtr image, const cv::Vec3d& target);
+
 	rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr _image_sub;
 	rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr _camera_info_sub;
 	rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr _image_pub;
 	rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr _target_pose_pub;
 
-	// Data
 	std::unique_ptr<cv::aruco::ArucoDetector> _detector;
 	cv::Mat _camera_matrix;
 	cv::Mat _dist_coeffs;
 
-	// State
-	std::array<double, 3> _target;
-	double _marker_size = {0.0};
-	int aruco_id;
+	int _param_aruco_id {};
+	int _param_dictionary {};
+	double _param_marker_size {};
 };
 

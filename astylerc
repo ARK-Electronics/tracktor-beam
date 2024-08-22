@@ -1,0 +1,14 @@
+indent=force-tab=8
+style=linux
+recursive
+break-blocks=all
+pad-oper
+pad-header
+unpad-paren
+keep-one-line-blocks
+keep-one-line-statements
+align-pointer=type
+align-reference=type
+suffix=none
+lineend=linux
+max-code-length=140
