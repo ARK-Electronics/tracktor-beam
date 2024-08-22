@@ -18,6 +18,7 @@ https://docs.opencv.org/4.x/d5/dae/tutorial_aruco_detection.html
 * Micro XRCE-DDS Agent
 * QGroundControl
 * OpenCV 4.10.0
+* ROS_GZ bridge
 
 You can find the required instructions collected below
 
@@ -30,6 +31,12 @@ cd PX4-Autopilot
 git checkout dev/aruco_tag_world
 make px4_sitl
 ```
+To get ros_gz bridge
+```
+ sudo apt install ros-rolling-ros-gz
+```
+https://github.com/gazebosim/ros_gz
+
 
 For the OpenCV part follow the instructions below
 
