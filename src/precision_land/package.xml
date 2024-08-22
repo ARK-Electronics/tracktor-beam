@@ -19,7 +19,6 @@
   <depend>px4_ros2_cpp</depend>
   <depend>geometry_msgs</depend>
   <depend>tf2_ros</depend>
-  <depend>tf2_kdl</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

@@ -1,8 +1,3 @@
-/****************************************************************************
- * Copyright (c) 2023 PX4 Development Team.
- * SPDX-License-Identifier: BSD-3-Clause
- ****************************************************************************/
-
 #pragma once
 
 #include <px4_ros2/components/mode.hpp>
@@ -12,7 +7,6 @@
 #include <px4_msgs/msg/vehicle_land_detected.hpp>
 #include <px4_ros2/control/setpoint_types/experimental/trajectory.hpp>
 
-
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <cmath>
@@ -20,8 +14,6 @@
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
-#include <kdl/frames.hpp>
-#include <tf2_kdl/tf2_kdl.hpp>
 #include <vector>
 
 class PrecisionLand : public px4_ros2::ModeBase
@@ -38,11 +30,25 @@ public:
 	void updateSetpoint(float dt_s) override;
 
 private:
+	struct ArucoTag {
+		Eigen::Vector3d position;
+		Eigen::Quaterniond orientation;
+		rclcpp::Time timestamp;
+
+		bool valid() { return timestamp.nanoseconds() > 0; };
+	};
+
+	void loadParameters();
+
+	ArucoTag getTagWorld(const ArucoTag& tag);
+
+	Eigen::Vector2f calculateVelocitySetpointXY();
+	bool checkTargetTimeout();
 	bool positionReached(const Eigen::Vector3f& target) const;
 
 	enum class State {
 		Idle,
-		Search, 	// Searches for target -- TODO: optionally perform a search pattern
+		Search, 	// Searches for target using a search pattern
 		Approach, 	// Positioning over landing target while maintaining altitude
 		Descend, 	// Stay over landing target while descending
 		Finished
@@ -63,11 +69,13 @@ private:
 
 	// Data
 	State _state = State::Search;
-	Eigen::Vector3f _target_position = { NAN, NAN, NAN};
-	float _target_heading = {};
+
+	ArucoTag _tag;
 	float _approach_altitude = {};
 
-	rclcpp::Time _last_target_timestamp;
+	// Land detection
+	bool _land_detected = false;
+	bool _target_lost_prev = true;
 
 	// Waypoints for Search pattern
 	std::vector<Eigen::Vector3f> _search_waypoints;
@@ -75,8 +83,16 @@ private:
 	void generateSearchWaypoints();
 	// Search pattern index
 	int _search_waypoint_index = 0;
-	// Land detection
-	bool _land_detected = false;
-	bool _target_lost = false;
-	bool _target_lost_prev = false;
+
+	// Parameters
+	float _param_descent_vel = {};
+	float _param_vel_p_gain = {};
+	float _param_vel_i_gain = {};
+	float _param_max_velocity = {};
+	float _param_target_timeout = {};
+	float _param_delta_position = {};
+	float _param_delta_velocity = {};
+
+	float _vel_x_integral {};
+	float _vel_y_integral {};
 };

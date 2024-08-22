@@ -2,7 +2,7 @@
 
 Launch PX4 sim
 ```
-make px4_sitl_default gz_x500_mono_cam_down
+make px4_sitl_default gz_x500_mono_cam_down_aruco
 ```
 OR for multiple vehicle
 ```
@@ -31,6 +31,9 @@ ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@
 ```
 
 Launch the ros2 nodes (aruco_tracker and precision_land)
+```
+ros2 launch precision_land test.launch.py
+```
 
 View the video (/image_proc is the annoted image)
 ```
