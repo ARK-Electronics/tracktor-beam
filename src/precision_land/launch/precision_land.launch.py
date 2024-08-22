@@ -5,6 +5,10 @@ from launch.substitutions import PathJoinSubstitution
 
 def generate_launch_description():
     return LaunchDescription([
+        # ExecuteProcess(
+        #     cmd=['screen', '-dmS', 'dds_agent', 'bash', '-c', 'MicroXRCEAgent udp4 -p 8888'],
+        #     name='dds_agent_process'
+        # ),
         Node(
             package='precision_land',
             executable='precision_land',
