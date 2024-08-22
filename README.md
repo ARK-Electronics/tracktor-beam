@@ -27,7 +27,8 @@ To get the right PX4-Autopilot:
 ```
 git clone git@github.com:dakejahl/PX4-Autopilot.git
 cd PX4-Autopilot
-git checkout dev/aruco_tag_world 
+git checkout dev/aruco_tag_world
+make px4_sitl
 ```
 
 For the OpenCV part follow the instructions below
