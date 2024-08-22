@@ -56,7 +56,7 @@ cd tracktor-beam
 ```
 Checkout to the correct branch
 ```
-git checkout aruco_detection_usb_cam 
+git checkout aruco_tutorial 
 ```
 Install OpenCV from source
 ```
