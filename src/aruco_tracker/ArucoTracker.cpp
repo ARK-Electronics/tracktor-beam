@@ -6,9 +6,14 @@ ArucoTrackerNode::ArucoTrackerNode()
 {
 	RCLCPP_INFO(this->get_logger(), "Starting ArucoTrackerNode");
 
-	// Define aruco tag dictionary to use
-	cv::aruco::DetectorParameters detectorParams = cv::aruco::DetectorParameters();
-	cv::aruco::Dictionary dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_250);
+	loadParameters();
+
+	// See: https://docs.opencv.org/4.x/d1/dcd/structcv_1_1aruco_1_1DetectorParameters.html
+	auto detectorParams = cv::aruco::DetectorParameters();
+
+	// See: https://docs.opencv.org/4.x/d1/d21/aruco__dictionary_8hpp.html
+	auto dictionary = cv::aruco::getPredefinedDictionary(_param_dictionary);
+
 	_detector = std::make_unique<cv::aruco::ArucoDetector>(dictionary, detectorParams);
 
 	// RMW QoS settings
@@ -26,10 +31,17 @@ ArucoTrackerNode::ArucoTrackerNode()
 			     "/image_proc", qos);
 	_target_pose_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>(
 				   "/target_pose", qos);
+}
 
-	// Load parameters
-	this->declare_parameter("aruco_id", 0);
-	this->get_parameter("aruco_id", aruco_id);
+void ArucoTrackerNode::loadParameters()
+{
+	declare_parameter<int>("aruco_id", 0);
+	declare_parameter<int>("dictionary", 2); // DICT_4X4_250
+	declare_parameter<double>("marker_size", 0.5);
+
+	get_parameter("aruco_id", _param_aruco_id);
+	get_parameter("dictionary", _param_dictionary);
+	get_parameter("marker_size", _param_marker_size);
 }
 
 void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr msg)
@@ -57,14 +69,12 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 			}
 
 			for (size_t i = 0; i < ids.size(); i++) {
-				if (ids[i] != aruco_id) {
+				if (ids[i] != _param_aruco_id) {
 					continue;
 				}
-				// Define marker size in meters
-				_marker_size = 0.5; // 50 cm
 
 				// Calculate marker size from camera intrinsics
-				float half_size = _marker_size / 2.0f;
+				float half_size = _param_marker_size / 2.0f;
 				std::vector<cv::Point3f> objectPoints = {
 					cv::Point3f(-half_size,  half_size, 0),  // top left
 					cv::Point3f(half_size,  half_size, 0),   // top right
@@ -76,7 +86,7 @@ void ArucoTrackerNode::image_callback(const sensor_msgs::msg::Image::SharedPtr m
 				cv::Vec3d rvec, tvec;
 				cv::solvePnP(objectPoints, undistortedCorners[i], _camera_matrix, cv::noArray(), rvec, tvec);
 				// Annotate the image
-				cv::drawFrameAxes(cv_ptr->image, _camera_matrix, cv::noArray(), rvec, tvec, _marker_size);
+				cv::drawFrameAxes(cv_ptr->image, _camera_matrix, cv::noArray(), rvec, tvec, _param_marker_size);
 				// In OpenCV frame
 				_target[0] = tvec[0];
 				_target[1] = tvec[1];

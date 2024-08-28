@@ -17,10 +17,11 @@ public:
 	ArucoTrackerNode();
 
 private:
+	void loadParameters();
+
 	// Callbacks
 	void image_callback(const sensor_msgs::msg::Image::SharedPtr msg);
 	void camera_info_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg);
-	// Image processing
 	void annotate_image(cv_bridge::CvImagePtr image);
 
 	// ROS2 Subscribers and Publishers
@@ -36,7 +37,8 @@ private:
 
 	// State
 	std::array<double, 3> _target;
-	double _marker_size = {0.0};
-	int aruco_id;
+	int _param_aruco_id {};
+	int _param_dictionary {};
+	double _param_marker_size {};
 };
 
