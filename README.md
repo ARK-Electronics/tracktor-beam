@@ -14,7 +14,7 @@ https://docs.opencv.org/4.x/d5/dae/tutorial_aruco_detection.html
 ### Prerequisites
 * Ubuntu 22.04
 * ROS2 Humble
-* PX4 Autopilot with aArUco Marker and downward facing camera
+* PX4 Autopilot with an ArUco Marker and downward facing camera
 * Micro XRCE-DDS Agent
 * QGroundControl
 * OpenCV 4.10.0
@@ -24,13 +24,7 @@ You can find the required instructions collected below
 
 https://docs.px4.io/main/en/ros2/user_guide.html
 
-To get the right PX4-Autopilot:
-```
-git clone git@github.com:dakejahl/PX4-Autopilot.git
-cd PX4-Autopilot
-git checkout dev/aruco_tag_world
-make px4_sitl
-```
+You need the lates PX4-Autopilot, that will contain the required drone with the downward facing camera and the world that has the aruco marker in it
 To get ros_gz bridge
 ```
  sudo apt install ros-rolling-ros-gz
@@ -91,7 +85,7 @@ source install/setup.bash
 #### Run the simulation environment
 Launch PX4 sim
 ```
-make px4_sitl_default gz_x500_mono_cam_down
+make px4_sitl gz_x500_mono_cam_down_aruco
 ```
 Launch micro dds
 ```
