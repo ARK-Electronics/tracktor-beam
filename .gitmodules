@@ -1,9 +1,9 @@
-[submodule "src/px4_msgs"]
-	path = src/px4_msgs
-	url = https://github.com/PX4/px4_msgs.git
-[submodule "src/px4-ros2-interface-lib"]
-	path = src/px4-ros2-interface-lib
-	url = https://github.com/Auterion/px4-ros2-interface-lib.git
 [submodule "src/vision_opencv"]
 	path = src/vision_opencv
 	url = https://github.com/ros-perception/vision_opencv.git
+[submodule "src/px4-ros2-interface-lib"]
+	path = src/px4-ros2-interface-lib
+	url = https://github.com/Auterion/px4-ros2-interface-lib.git
+[submodule "src/px4_msgs"]
+	path = src/px4_msgs
+	url = https://github.com/PX4/px4_msgs.git
