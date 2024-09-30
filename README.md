@@ -1,5 +1,32 @@
 ![](logo.jpeg)
 
+# Installation and Dependencies
+
+Clone the Repo and install the OpenCV dependencies
+```
+git clone --recursive  https://github.com/ARK-Electronics/tracktor-beam
+cd tracktor-beam
+./install_opencv.sh
+```
+Install `ros_gz_bridge`
+```
+sudo sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" > /etc/apt/sources.list.d/gazebo-stable.list'
+wget https://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
+```
+```
+sudo apt update
+sudo apt install ros-humble-ros-gz-bridge
+```
+Install  `rqt-image-view`
+```
+sudo apt install ros-$ROS_DISTRO-rqt-image-view
+```
+Build the ROS2 Packages
+```
+colcon build --packages-up-to precision_land
+```
+
+# Usage
 Launch PX4 sim
 ```
 make px4_sitl_default gz_x500_mono_cam_down_aruco
@@ -32,7 +59,7 @@ ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@
 
 Launch the ros2 nodes (aruco_tracker and precision_land)
 ```
-ros2 launch precision_land test.launch.py
+ros2 launch precision_land precision_land.launch.py
 ```
 
 View the video (/image_proc is the annoted image)
