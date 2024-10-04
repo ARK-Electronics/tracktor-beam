@@ -1,0 +1,14 @@
+[Unit]
+Description=Micro-XRCE-DDS-Agent
+Wants=network.target
+Requires=sys-devices-platform-bus\x400-3100000.serial-tty-ttyTHS1.device
+After=sys-devices-platform-bus\x400-3100000.serial-tty-ttyTHS1.device syslog.target network-online.target
+
+[Service]
+Type=simple
+ExecStart=/snap/bin/micro-xrce-dds-agent serial -b 3000000 -D /dev/ttyTHS1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
