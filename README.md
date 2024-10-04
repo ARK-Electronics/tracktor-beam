@@ -28,7 +28,7 @@ https://docs.qgroundcontrol.com/master/en/qgc-user-guide/releases/daily_builds.h
 You need the lates PX4-Autopilot, that will contain the required drone with the downward facing camera and the world that has the aruco marker in it
 To get ros_gz bridge
 ```
- sudo apt install ros-rolling-ros-gz
+sudo apt install ros-humble-ros-gzgarden
 ```
 https://github.com/gazebosim/ros_gz
 
