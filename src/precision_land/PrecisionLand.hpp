@@ -31,7 +31,8 @@ public:
 
 private:
 	struct ArucoTag {
-		Eigen::Vector3d position;
+		// Initialize position with NaN values directly in the struct
+		Eigen::Vector3d position = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
 		Eigen::Quaterniond orientation;
 		rclcpp::Time timestamp;
 
@@ -69,6 +70,7 @@ private:
 
 	// Data
 	State _state = State::Search;
+	bool _search_started = false;
 
 	ArucoTag _tag;
 	float _approach_altitude = {};

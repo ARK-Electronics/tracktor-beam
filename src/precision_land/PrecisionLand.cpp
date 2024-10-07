@@ -59,14 +59,17 @@ void PrecisionLand::vehicleLandDetectedCallback(const px4_msgs::msg::VehicleLand
 
 void PrecisionLand::targetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
-	auto tag = ArucoTag {
-		.position = Eigen::Vector3d(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z),
-		.orientation = Eigen::Quaterniond(msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z),
-		.timestamp = _node.now(),
-	};
+	if (_search_started) {
+		auto tag = ArucoTag {
+			.position = Eigen::Vector3d(msg->pose.position.x, msg->pose.position.y, msg->pose.position.z),
+			.orientation = Eigen::Quaterniond(msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z),
+			.timestamp = _node.now(),
+		};
 
-	// Save tag position/orientation in NED world frame
-	_tag = getTagWorld(tag);
+		// Save tag position/orientation in NED world frame
+		_tag = getTagWorld(tag);
+	}
+
 }
 
 PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
@@ -100,6 +103,7 @@ PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
 void PrecisionLand::onActivate()
 {
 	generateSearchWaypoints();
+	_search_started = true;
 	switchToState(State::Search);
 }
 
