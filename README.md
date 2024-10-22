@@ -10,6 +10,7 @@ https://docs.opencv.org/4.x/d5/dae/tutorial_aruco_detection.html
 
 
 ### Video Walkthrough
+![](https://youtu.be/3BJB3OAo3tw?si=rJiTScTOzJzZjN2t)
 
 ### Prerequisites
 * Ubuntu 22.04
