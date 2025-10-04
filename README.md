@@ -5,11 +5,10 @@
 ### Prerequisites
 * Ubuntu 22.04
 * ROS2 Humble
-* PX4 Autopilot with an ArUco Marker and downward facing camera
+* Gazebo Harmonic
 * Micro XRCE-DDS Agent
 * QGroundControl Daily Build
 * OpenCV 4.10.0
-* ROS_GZ bridge
 
 ### Setup the Workspace
 Make sure you source ROS2 Humble in the terminal you are using. You can add this line to your ~/.bashrc if you want it sourced every time you open a new terminal.
@@ -21,33 +20,41 @@ Navigate to the directory you would like to place the worskpace and then run the
 ```
 git clone --recurse-submodules https://github.com/ARK-Electronics/tracktor-beam.git
 ```
+
 Then navigate into the workspace:
 ```
 cd tracktor-beam
 ```
+
 Install OpenCV from source
 ```
 ./install_opencv.sh 
 ```
-Install ros_gz_bridge. Replace ${ROS_DISTRO} with the distro you're using (e.g. humble)
+
+Set the GZ_VERSION environment variable
 ```
-sudo apt-get install ros-${ROS_DISTRO}-ros-gz
+export GZ_VERSION=harmonic
 ```
+
 Build the workspace
 ```
 colcon build
 ```
+
 After this runs, we do not need to build the whole workspace again, you can just build the individual packages you have modified
 ```
 colcon build --packages-select precision_land
 ```
+
 Source the workspace
 ```
 source install/setup.bash 
 ```
+
 ### Run the example
 
 #### Run the simulation environment
+This workspace is tested against a specific version of PX4. Please use PX4 commit 86f2fdfd7de7f5e5d29ab61f60d81e892a557376.
 
 Launch PX4 Simulation
 ```
@@ -61,12 +68,12 @@ MicroXRCEAgent udp4 -p 8888
 
 Launch the ros_gz_bridge to bridge the camera image topic from Gazebo to ROS2
 ```
-ros2 run ros_gz_bridge parameter_bridge /camera@sensor_msgs/msg/Image@gz.msgs.Image
+ros2 run ros_gz_bridge parameter_bridge /world/aruco/model/x500_mono_cam_down_0/link/camera_link/sensor/imager/image@sensor_msgs/msg/Image@gz.msgs.Image
 ```
 
 Launch the ros_gz_bridge to bridge the camera info topic from Gazebo to ROS2 (this is how we get camera intrinsics)
 ```
-ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo
+ros2 run ros_gz_bridge parameter_bridge /world/aruco/model/x500_mono_cam_down_0/link/camera_link/sensor/imager/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo
 ```
 
 Launch the aruco_tracker node

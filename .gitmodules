@@ -7,3 +7,6 @@
 [submodule "src/px4_msgs"]
 	path = src/px4_msgs
 	url = https://github.com/PX4/px4_msgs.git
+[submodule "src/ros_gz"]
+	path = src/ros_gz
+	url = https://github.com/gazebosim/ros_gz.git

@@ -28,6 +28,8 @@ PrecisionLand::PrecisionLand(rclcpp::Node& node)
 				     rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::vehicleLandDetectedCallback, this, std::placeholders::_1));
 
 	loadParameters();
+
+	modeRequirements().manual_control = false;
 }
 
 void PrecisionLand::loadParameters()
