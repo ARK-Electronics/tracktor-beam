@@ -62,7 +62,6 @@ void PrecisionLand::loadParameters()
 
 void PrecisionLand::gimbalAttitudeCallback(const px4_msgs::msg::GimbalDeviceAttitudeStatus::SharedPtr msg)
 {
-	RCLCPP_INFO(_node.get_logger(), "gimbalAttitudeCallback");
     _gimbal_orientation = Eigen::Quaterniond(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
 }
 
@@ -99,30 +98,88 @@ void PrecisionLand::targetPoseCallback(const geometry_msgs::msg::PoseStamped::Sh
 
 }
 
+// PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
+// {
+// 	// Convert from optical to NED (camera looking down)
+// 	// Optical: X right, Y down, Z away from lens
+// 	// NED: X forward, Y right, Z away from viewer
+// 	Eigen::Matrix3d R;
+// 	R << 0, -1, 0,
+// 	1, 0, 0,
+// 	0, 0, 1;
+// 	Eigen::Quaterniond quat_NED(R);
+
+// 	// Optical to NED in Forward facing direction
+// 	// NED | Optical
+// 	// x   =  z
+// 	// y   =  x
+// 	// z   =  y
+
+// 	auto vehicle_position = Eigen::Vector3d(_vehicle_local_position->positionNed().cast<double>());
+// 	auto vehicle_orientation = Eigen::Quaterniond(_vehicle_attitude->attitude().cast<double>());
+
+// 	Eigen::Affine3d drone_transform = Eigen::Translation3d(vehicle_position) * vehicle_orientation;
+// 	Eigen::Affine3d camera_transform = Eigen::Translation3d(0, 0, -0.1) * quat_NED;
+// 	Eigen::Affine3d tag_transform = Eigen::Translation3d(tag.position) * tag.orientation;
+// 	Eigen::Affine3d tag_world_transform = drone_transform * camera_transform * tag_transform;
+
+// 	ArucoTag world_tag = {
+// 		.position = tag_world_transform.translation(),
+// 		.orientation = Eigen::Quaterniond(tag_world_transform.rotation()),
+// 		.timestamp = tag.timestamp,
+// 	};
+
+// 	return world_tag;
+// }
+
 PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
 {
-	// Convert from optical to NED (camera looking down)
-	// Optical: X right, Y down, Z away from lens
-	// NED: X forward, Y right, Z away from viewer
-	Eigen::Matrix3d R;
-	R << 0, -1, 0,
-	1, 0, 0,
-	0, 0, 1;
-	Eigen::Quaterniond quat_NED(R);
-
-	// Optical to NED in Forward facing direction
-	// NED | Optical
-	// x   =  z
-	// y   =  x
-	// z   =  y
-
+	// Get vehicle state in NED world frame
 	auto vehicle_position = Eigen::Vector3d(_vehicle_local_position->positionNed().cast<double>());
 	auto vehicle_orientation = Eigen::Quaterniond(_vehicle_attitude->attitude().cast<double>());
 
-	Eigen::Affine3d drone_transform = Eigen::Translation3d(vehicle_position) * vehicle_orientation;
-	Eigen::Affine3d camera_transform = Eigen::Translation3d(0, 0, -0.1) * quat_NED;
-	Eigen::Affine3d tag_transform = Eigen::Translation3d(tag.position) * tag.orientation;
-	Eigen::Affine3d tag_world_transform = drone_transform * camera_transform * tag_transform;
+	// Calculate relative gimbal orientation with respect to drone body frame
+	// Both vehicle_orientation and _gimbal_orientation are in NED world frame
+	// We need the rotation FROM drone body TO gimbal frame
+	Eigen::Quaterniond gimbal_relative = vehicle_orientation.inverse() * _gimbal_orientation;
+
+	// Gimbal mount offset from vehicle body to gimbal mount point
+	// From x500_gimbal/model.sdf: <pose>0 0 0.26 0 0 3.14</pose>
+	// The gimbal is mounted 0.26m down (+Z in NED/FRD) with 180° yaw rotation
+	Eigen::Vector3d gimbal_mount_offset(0, 0, 0.26);
+	Eigen::Quaterniond gimbal_mount_rotation(Eigen::AngleAxisd(0, Eigen::Vector3d::UnitZ()));
+
+	// Convert from camera optical frame to FRD body frame
+	// Optical frame: X=right, Y=down, Z=forward (away from lens)
+	// FRD body frame: X=forward, Y=right, Z=down
+	// Transformation mapping:
+	//   FRD_x = Optical_z (forward = away from lens)
+	//   FRD_y = Optical_x (right = right)
+	//   FRD_z = Optical_y (down = down)
+	Eigen::Matrix3d R_optical_to_frd;
+	R_optical_to_frd << 0, 0, 1,
+	                    1, 0, 0,
+	                    0, 1, 0;
+	Eigen::Quaterniond optical_to_frd(R_optical_to_frd);
+
+	// Build transformation chain:
+	// 1. Tag in optical frame
+	// 2. Convert optical to FRD
+	// 3. Apply relative gimbal rotation (camera angle relative to drone body)
+	// 4. Apply gimbal mount transform (offset + 180° yaw)
+	// 5. Transform to world using vehicle pose
+	Eigen::Affine3d T_world_vehicle = Eigen::Translation3d(vehicle_position) * vehicle_orientation;
+	Eigen::Affine3d T_vehicle_gimbal_mount = Eigen::Translation3d(gimbal_mount_offset) * gimbal_mount_rotation;
+	Eigen::Affine3d T_gimbal_relative(gimbal_relative);
+	Eigen::Affine3d T_optical(optical_to_frd);
+	Eigen::Affine3d T_tag = Eigen::Translation3d(tag.position) * tag.orientation;
+
+	// Complete transformation: apply transforms right-to-left
+	Eigen::Affine3d tag_world_transform = T_world_vehicle
+	                                    * T_vehicle_gimbal_mount
+	                                    * T_gimbal_relative
+	                                    * T_optical
+	                                    * T_tag;
 
 	ArucoTag world_tag = {
 		.position = tag_world_transform.translation(),
