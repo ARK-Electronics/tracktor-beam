@@ -29,6 +29,7 @@ private:
 		marker_msg.set_id(0);
 		marker_msg.set_action(gz::msgs::Marker::ADD_MODIFY);
 		marker_msg.set_type(gz::msgs::Marker::BOX);
+		marker_msg.set_visibility(gz::msgs::Marker::GUI);
 
 		// Set position (pose is already in world/map frame from precision_land)
 		marker_msg.mutable_pose()->mutable_position()->set_x(msg->pose.position.x);
@@ -58,8 +59,8 @@ private:
 		marker_msg.mutable_material()->mutable_diffuse()->set_a(0.8f);
 
 		// Set lifetime (1 second to account for slower update rate)
-		marker_msg.mutable_lifetime()->set_sec(1);
-		marker_msg.mutable_lifetime()->set_nsec(0);
+		marker_msg.mutable_lifetime()->set_sec(0);
+		marker_msg.mutable_lifetime()->set_nsec(500000000);
 
 		// Throttle service calls to reduce timeouts
 		auto now = std::chrono::steady_clock::now();
