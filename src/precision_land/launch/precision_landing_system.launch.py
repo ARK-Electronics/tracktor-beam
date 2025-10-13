@@ -43,6 +43,10 @@ def generate_launch_description():
             arguments=[
                 '/image_proc@sensor_msgs/msg/Image[gz.msgs.Image'
             ],
+            parameters=[{
+                'qos_overrides./image_proc.subscription.reliability': 'best_effort',
+                'qos_overrides./image_proc.publisher.reliability': 'best_effort'
+            }],
             output='screen',
         ),
         # Aruco tracker node

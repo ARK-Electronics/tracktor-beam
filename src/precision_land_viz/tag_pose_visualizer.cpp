@@ -13,7 +13,7 @@ public:
 	{
 		_pose_sub = create_subscription<geometry_msgs::msg::PoseStamped>(
 			"/target_pose_world",
-			rclcpp::QoS(10),
+			rclcpp::QoS(1).best_effort(),
 			std::bind(&TagPoseVisualizer::poseCallback, this, std::placeholders::_1));
 
 		RCLCPP_INFO(get_logger(), "Tag pose visualizer started - calling Gazebo marker service");
