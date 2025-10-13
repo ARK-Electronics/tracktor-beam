@@ -104,7 +104,7 @@ PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
 	auto vehicle_orientation = Eigen::Quaterniond(_vehicle_attitude->attitude().cast<double>());
 
 	Eigen::Affine3d drone_transform = Eigen::Translation3d(vehicle_position) * vehicle_orientation;
-	Eigen::Affine3d camera_transform = Eigen::Translation3d(0, 0, 0) * quat_NED;
+	Eigen::Affine3d camera_transform = Eigen::Translation3d(0, 0, -0.1) * quat_NED;
 	Eigen::Affine3d tag_transform = Eigen::Translation3d(tag.position) * tag.orientation;
 	Eigen::Affine3d tag_world_transform = drone_transform * camera_transform * tag_transform;
 
