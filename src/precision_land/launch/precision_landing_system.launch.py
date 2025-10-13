@@ -21,7 +21,7 @@ def generate_launch_description():
             executable='parameter_bridge',
             name='image_bridge',
             arguments=[
-                '/world/aruco/model/x500_mono_cam_down_0/link/camera_link/sensor/imager/image@sensor_msgs/msg/Image@gz.msgs.Image'
+                '/world/aruco/model/x500_gimbal_0/link/camera_link/sensor/camera/image@sensor_msgs/msg/Image@gz.msgs.Image'
             ],
             output='screen',
         ),
@@ -31,7 +31,7 @@ def generate_launch_description():
             executable='parameter_bridge',
             name='camera_info_bridge',
             arguments=[
-                '/world/aruco/model/x500_mono_cam_down_0/link/camera_link/sensor/imager/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo'
+                '/world/aruco/model/x500_gimbal_0/link/camera_link/sensor/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo'
             ],
             output='screen',
         ),

@@ -18,10 +18,10 @@ ArucoTrackerNode::ArucoTrackerNode()
 	auto qos = rclcpp::QoS(1).best_effort();
 
 	_image_sub = create_subscription<sensor_msgs::msg::Image>(
-			     "/world/aruco/model/x500_mono_cam_down_0/link/camera_link/sensor/imager/image", qos, std::bind(&ArucoTrackerNode::image_callback, this, std::placeholders::_1));
+			     "/world/aruco/model/x500_gimbal_0/link/camera_link/sensor/camera/image", qos, std::bind(&ArucoTrackerNode::image_callback, this, std::placeholders::_1));
 
 	_camera_info_sub = create_subscription<sensor_msgs::msg::CameraInfo>(
-				   "/world/aruco/model/x500_mono_cam_down_0/link/camera_link/sensor/imager/camera_info", qos, std::bind(&ArucoTrackerNode::camera_info_callback, this, std::placeholders::_1));
+				   "/world/aruco/model/x500_gimbal_0/link/camera_link/sensor/camera/camera_info", qos, std::bind(&ArucoTrackerNode::camera_info_callback, this, std::placeholders::_1));
 
 	// Publishers
 	_image_pub = create_publisher<sensor_msgs::msg::Image>("/image_proc", qos);

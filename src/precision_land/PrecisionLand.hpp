@@ -5,6 +5,7 @@
 #include <px4_ros2/odometry/attitude.hpp>
 #include <px4_msgs/msg/trajectory_setpoint.hpp>
 #include <px4_msgs/msg/vehicle_land_detected.hpp>
+#include <px4_msgs/msg/gimbal_device_attitude_status.hpp>
 #include <px4_ros2/control/setpoint_types/experimental/trajectory.hpp>
 
 #include <rclcpp/rclcpp.hpp>
@@ -23,6 +24,7 @@ public:
 
 	void targetPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 	void vehicleLandDetectedCallback(const px4_msgs::msg::VehicleLandDetected::SharedPtr msg);
+	void gimbalAttitudeCallback(const px4_msgs::msg::GimbalDeviceAttitudeStatus::SharedPtr msg);
 
 	// See ModeBasep
 	void onActivate() override;
@@ -62,7 +64,10 @@ private:
 	rclcpp::Node& _node;
 	rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr _target_pose_sub;
 	rclcpp::Subscription<px4_msgs::msg::VehicleLandDetected>::SharedPtr _vehicle_land_detected_sub;
+	rclcpp::Subscription<px4_msgs::msg::GimbalDeviceAttitudeStatus>::SharedPtr _gimbal_attitude_sub;
+
 	rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr _target_pose_world_pub;
+
 
 	// px4_ros2_cpp
 	std::shared_ptr<px4_ros2::OdometryLocalPosition> _vehicle_local_position;
@@ -75,6 +80,8 @@ private:
 
 	ArucoTag _tag;
 	float _approach_altitude = {};
+
+	Eigen::Quaterniond _gimbal_orientation = Eigen::Quaterniond::Identity();
 
 	// Land detection
 	bool _land_detected = false;
