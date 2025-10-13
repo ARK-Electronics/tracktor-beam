@@ -66,7 +66,7 @@ Launch MicroXRCEAgent
 MicroXRCEAgent udp4 -p 8888
 ```
 
-Launch the complete precision landing system (aruco_tracker, precision_land, and all bridges)
+Launch all of the nodes
 ```
 ros2 launch precision_land precision_landing_system.launch.py
 ```
