@@ -27,6 +27,8 @@ PrecisionLand::PrecisionLand(rclcpp::Node& node)
 	_vehicle_land_detected_sub = _node.create_subscription<px4_msgs::msg::VehicleLandDetected>("/fmu/out/vehicle_land_detected",
 				     rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::vehicleLandDetectedCallback, this, std::placeholders::_1));
 
+	_target_pose_world_pub = _node.create_publisher<geometry_msgs::msg::PoseStamped>("/target_pose_world", rclcpp::QoS(10));
+
 	loadParameters();
 
 	modeRequirements().manual_control = false;
@@ -70,6 +72,19 @@ void PrecisionLand::targetPoseCallback(const geometry_msgs::msg::PoseStamped::Sh
 
 		// Save tag position/orientation in NED world frame
 		_tag = getTagWorld(tag);
+
+		// Publish world-frame tag pose for visualization
+		geometry_msgs::msg::PoseStamped world_pose_msg;
+		world_pose_msg.header.stamp = _node.now();
+		world_pose_msg.header.frame_id = "map";
+		world_pose_msg.pose.position.x = _tag.position.x();
+		world_pose_msg.pose.position.y = _tag.position.y();
+		world_pose_msg.pose.position.z = _tag.position.z();
+		world_pose_msg.pose.orientation.w = _tag.orientation.w();
+		world_pose_msg.pose.orientation.x = _tag.orientation.x();
+		world_pose_msg.pose.orientation.y = _tag.orientation.y();
+		world_pose_msg.pose.orientation.z = _tag.orientation.z();
+		_target_pose_world_pub->publish(world_pose_msg);
 	}
 
 }

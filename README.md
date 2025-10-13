@@ -66,24 +66,9 @@ Launch MicroXRCEAgent
 MicroXRCEAgent udp4 -p 8888
 ```
 
-Launch the ros_gz_bridge to bridge the camera image topic from Gazebo to ROS2
+Launch the complete precision landing system (aruco_tracker, precision_land, and all bridges)
 ```
-ros2 run ros_gz_bridge parameter_bridge /world/aruco/model/x500_mono_cam_down_0/link/camera_link/sensor/imager/image@sensor_msgs/msg/Image@gz.msgs.Image
-```
-
-Launch the ros_gz_bridge to bridge the camera info topic from Gazebo to ROS2 (this is how we get camera intrinsics)
-```
-ros2 run ros_gz_bridge parameter_bridge /world/aruco/model/x500_mono_cam_down_0/link/camera_link/sensor/imager/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo
-```
-
-Launch the aruco_tracker node
-```
-ros2 run aruco_tracker aruco_tracker 
-```
-
-Launch the precision_land node
-```
-ros2 run precision_land precision_land
+ros2 launch precision_land precision_landing_system.launch.py
 ```
 
 View the video (/image_proc is the annoted image)
