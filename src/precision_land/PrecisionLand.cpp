@@ -139,7 +139,7 @@ PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
 	auto vehicle_orientation = Eigen::Quaterniond(_vehicle_attitude->attitude().cast<double>());
 
 	// Gimbal mount offset in vehicle body frame (FRD)
-	Eigen::Vector3d gimbal_mount_offset_body(0.0, 0.0, -0.26);
+	Eigen::Vector3d gimbal_mount_offset_body(0.0, 0.0, -0.16);
 
 	// Gimbal's orientation relative to vehicle body
 	Eigen::Quaterniond gimbal_relative = vehicle_orientation.inverse() * _gimbal_orientation;
