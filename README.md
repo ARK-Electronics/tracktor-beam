@@ -58,7 +58,7 @@ This workspace is tested against a specific version of PX4. Please use PX4 commi
 
 Launch PX4 Simulation
 ```
-make px4_sitl gz_x500_mono_cam_down_aruco
+make px4_sitl gz_x500_gimbal_aruco
 ```
 
 Launch MicroXRCEAgent
@@ -76,7 +76,7 @@ View the video (/image_proc is the annoted image)
 ros2 run rqt_image_view rqt_image_view
 ```
 
-Once the nodes are running the Precision Land mode is going to show up in QGC
+Once the nodes are running the Precision Land mode is going to show up in QGC. Make sure to pitch the gimbal down in QGC.
 
 ![](Precision.png)
 

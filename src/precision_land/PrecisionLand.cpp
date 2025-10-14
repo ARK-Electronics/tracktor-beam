@@ -27,6 +27,10 @@ PrecisionLand::PrecisionLand(rclcpp::Node& node)
 	_vehicle_land_detected_sub = _node.create_subscription<px4_msgs::msg::VehicleLandDetected>("/fmu/out/vehicle_land_detected",
 				     rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::vehicleLandDetectedCallback, this, std::placeholders::_1));
 
+
+    _gimbal_attitude_sub = _node.create_subscription<px4_msgs::msg::GimbalDeviceAttitudeStatus>("/fmu/out/gimbal_device_attitude_status",
+                     rclcpp::QoS(1).best_effort(), std::bind(&PrecisionLand::gimbalAttitudeCallback, this, std::placeholders::_1));
+
 	_target_pose_world_pub = _node.create_publisher<geometry_msgs::msg::PoseStamped>("/target_pose_world", rclcpp::QoS(1).best_effort());
 
 	loadParameters();
@@ -54,6 +58,11 @@ void PrecisionLand::loadParameters()
 
 	RCLCPP_INFO(_node.get_logger(), "descent_vel: %f", _param_descent_vel);
 	RCLCPP_INFO(_node.get_logger(), "vel_i_gain: %f", _param_vel_i_gain);
+}
+
+void PrecisionLand::gimbalAttitudeCallback(const px4_msgs::msg::GimbalDeviceAttitudeStatus::SharedPtr msg)
+{
+    _gimbal_orientation = Eigen::Quaterniond(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
 }
 
 void PrecisionLand::vehicleLandDetectedCallback(const px4_msgs::msg::VehicleLandDetected::SharedPtr msg)
@@ -91,22 +100,31 @@ void PrecisionLand::targetPoseCallback(const geometry_msgs::msg::PoseStamped::Sh
 
 PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
 {
-	// Convert from optical to NED
-	// Optical: X right, Y down, Z away from lens
-	// NED: X forward, Y right, Z away from viewer
-	Eigen::Matrix3d R;
-	R << 0, -1, 0,
-	1, 0, 0,
-	0, 0, 1;
-	Eigen::Quaterniond quat_NED(R);
-
 	auto vehicle_position = Eigen::Vector3d(_vehicle_local_position->positionNed().cast<double>());
 	auto vehicle_orientation = Eigen::Quaterniond(_vehicle_attitude->attitude().cast<double>());
 
-	Eigen::Affine3d drone_transform = Eigen::Translation3d(vehicle_position) * vehicle_orientation;
-	Eigen::Affine3d camera_transform = Eigen::Translation3d(0, 0, -0.1) * quat_NED;
-	Eigen::Affine3d tag_transform = Eigen::Translation3d(tag.position) * tag.orientation;
-	Eigen::Affine3d tag_world_transform = drone_transform * camera_transform * tag_transform;
+	Eigen::Vector3d gimbal_mount_offset_body(0.0, 0.0, -0.16);
+
+	Eigen::Quaterniond gimbal_relative = vehicle_orientation.inverse() * _gimbal_orientation;
+
+	// Optical frame to FRD transformation
+	Eigen::Matrix3d R_optical_to_frd;
+	R_optical_to_frd << 0, 0, 1,
+	                    1, 0, 0,
+	                    0, 1, 0;
+	Eigen::Quaterniond optical_to_frd(R_optical_to_frd);
+
+	Eigen::Affine3d T_world_vehicle = Eigen::Translation3d(vehicle_position) * vehicle_orientation;
+	Eigen::Affine3d T_gimbal_offset = Eigen::Translation3d(gimbal_mount_offset_body) * Eigen::Quaterniond::Identity();
+	Eigen::Affine3d T_gimbal_relative(gimbal_relative);
+	Eigen::Affine3d T_optical(optical_to_frd);
+	Eigen::Affine3d T_tag = Eigen::Translation3d(tag.position) * tag.orientation;
+
+	Eigen::Affine3d tag_world_transform = T_world_vehicle
+	                                    * T_gimbal_offset
+	                                    * T_gimbal_relative
+	                                    * T_optical
+	                                    * T_tag;
 
 	ArucoTag world_tag = {
 		.position = tag_world_transform.translation(),
