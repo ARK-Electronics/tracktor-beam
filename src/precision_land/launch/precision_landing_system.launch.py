@@ -59,6 +59,13 @@ def generate_launch_description():
                 PathJoinSubstitution([FindPackageShare('aruco_tracker'), 'cfg', 'params.yaml'])
             ]
         ),
+        # Gimbal controller node
+        Node(
+            package='aruco_tracker',
+            executable='gimbal_controller',
+            name='gimbal_controller',
+            output='screen',
+        ),
         # Precision landing node
         Node(
             package='precision_land',

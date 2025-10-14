@@ -27,7 +27,13 @@ ament_target_dependencies(aruco_tracker Eigen3 rclcpp px4_msgs sensor_msgs cv_br
 
 target_compile_features(aruco_tracker PUBLIC c_std_99 cxx_std_17)
 
-install(TARGETS aruco_tracker DESTINATION lib/${PROJECT_NAME})
+add_executable(gimbal_controller GimbalController.cpp)
+
+ament_target_dependencies(gimbal_controller Eigen3 rclcpp px4_msgs geometry_msgs)
+
+target_compile_features(gimbal_controller PUBLIC c_std_99 cxx_std_17)
+
+install(TARGETS aruco_tracker gimbal_controller DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
     find_package(ament_lint_auto REQUIRED)
