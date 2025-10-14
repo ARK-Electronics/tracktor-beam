@@ -138,30 +138,29 @@ PrecisionLand::ArucoTag PrecisionLand::getTagWorld(const ArucoTag& tag)
 	auto vehicle_position = Eigen::Vector3d(_vehicle_local_position->positionNed().cast<double>());
 	auto vehicle_orientation = Eigen::Quaterniond(_vehicle_attitude->attitude().cast<double>());
 
-	// Gimbal offset from drone body (in FRD)
-	Eigen::Vector3d gimbal_offset_body(0.0412, 0.0, 0.098);
+	// Gimbal mount offset in vehicle body frame (FRD)
+	Eigen::Vector3d gimbal_mount_offset_body(0.0, 0.0, -0.26);
 
+	// Gimbal's orientation relative to vehicle body
 	Eigen::Quaterniond gimbal_relative = vehicle_orientation.inverse() * _gimbal_orientation;
 
-	// Optical frame to FRD (Forward-Right-Down) transformation
-	// Camera optical: X=right, Y=down, Z=forward (in camera view)
-	// FRD body: X=forward, Y=right, Z=down
-	// Mapping: Optical Z→FRD X, Optical X→FRD Y, Optical Y→FRD Z
+	// Optical frame to FRD transformation
 	Eigen::Matrix3d R_optical_to_frd;
 	R_optical_to_frd << 0, 0, 1,
 	                    1, 0, 0,
 	                    0, 1, 0;
 	Eigen::Quaterniond optical_to_frd(R_optical_to_frd);
 
+	// Transform chain: Tag (optical) → Gimbal (relative) → Gimbal offset → Vehicle → World
 	Eigen::Affine3d T_world_vehicle = Eigen::Translation3d(vehicle_position) * vehicle_orientation;
-	Eigen::Affine3d T_gimbal_offset = Eigen::Translation3d(gimbal_offset_body) * Eigen::Quaterniond::Identity();
-	Eigen::Affine3d T_gimbal_rotation(gimbal_relative);
+	Eigen::Affine3d T_gimbal_offset = Eigen::Translation3d(gimbal_mount_offset_body) * Eigen::Quaterniond::Identity();
+	Eigen::Affine3d T_gimbal_relative(gimbal_relative);
 	Eigen::Affine3d T_optical(optical_to_frd);
 	Eigen::Affine3d T_tag = Eigen::Translation3d(tag.position) * tag.orientation;
 
 	Eigen::Affine3d tag_world_transform = T_world_vehicle
 	                                    * T_gimbal_offset
-	                                    * T_gimbal_rotation
+	                                    * T_gimbal_relative
 	                                    * T_optical
 	                                    * T_tag;
 
